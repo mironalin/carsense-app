@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 
+@Suppress("DEPRECATION")
 class FoundDeviceReceiver(private val onDeviceFound: (BluetoothDevice) -> Unit) :
     BroadcastReceiver() {
 

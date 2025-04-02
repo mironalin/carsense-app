@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 
+@Suppress("DEPRECATION")
 class BluetoothStateReceiver(
     private val onStateChanged: (isConnected: Boolean, BluetoothDevice) -> Unit
 ) : BroadcastReceiver() {
