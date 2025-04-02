@@ -36,26 +36,21 @@ import com.carsense.features.obd2.presentation.model.MessageModel
  */
 @Composable
 fun DashboardScreen(
-    state: BluetoothState,
-    onDisconnect: () -> Unit,
-    onSendCommand: (String) -> Unit
+        state: BluetoothState,
+        onDisconnect: () -> Unit,
+        onSendCommand: (String) -> Unit
 ) {
     var command by remember { mutableStateOf("") }
 
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text(
-            text = "OBD2 Diagnostics",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
+                text = "OBD2 Diagnostics",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(bottom = 16.dp)
         )
 
         // Message display area
-        LazyColumn(modifier = Modifier
-            .fillMaxWidth()
-            .weight(1f)
-            .padding(vertical = 8.dp)) {
+        LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f).padding(vertical = 8.dp)) {
             items(state.messages) { message ->
                 MessageItem(message = message)
                 Spacer(modifier = Modifier.height(4.dp))
@@ -64,45 +59,41 @@ fun DashboardScreen(
 
         // Command input
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedTextField(
-                value = command,
-                onValueChange = { command = it },
-                label = { Text("OBD2 Command") },
-                modifier = Modifier.weight(1f)
+                    value = command,
+                    onValueChange = { command = it },
+                    label = { Text("OBD2 Command") },
+                    modifier = Modifier.weight(1f)
             )
 
             Spacer(modifier = Modifier.width(8.dp))
 
             Button(
-                onClick = {
-                    if (command.isNotBlank()) {
-                        onSendCommand(command)
-                        command = ""
+                    onClick = {
+                        if (command.isNotBlank()) {
+                            onSendCommand(command)
+                            command = ""
+                        }
                     }
-                }
             ) { Text("Send") }
         }
 
         // Quick commands
         QuickCommandsSection(
-            onCommandSelected = { selectedCommand -> onSendCommand(selectedCommand) }
+                onCommandSelected = { selectedCommand -> onSendCommand(selectedCommand) }
         )
 
         // Disconnect button
         Button(
-            onClick = onDisconnect,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            colors =
-                ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                )
+                onClick = onDisconnect,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                colors =
+                        ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                        )
         ) { Text("Disconnect") }
     }
 }
@@ -110,9 +101,9 @@ fun DashboardScreen(
 @Composable
 fun MessageItem(message: MessageModel) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(text = message.message, style = MaterialTheme.typography.bodyMedium)
@@ -122,13 +113,11 @@ fun MessageItem(message: MessageModel) {
 
 @Composable
 fun QuickCommandsSection(onCommandSelected: (String) -> Unit) {
-    Column(modifier = Modifier
-        .fillMaxWidth()
-        .padding(vertical = 8.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(
-            text = "Quick Commands",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = 8.dp)
+                text = "Quick Commands",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
         )
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -138,10 +127,8 @@ fun QuickCommandsSection(onCommandSelected: (String) -> Unit) {
         }
 
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             CommandChip(text = "VIN", command = "0902", onCommandSelected = onCommandSelected)
             CommandChip(text = "Fuel", command = "012F", onCommandSelected = onCommandSelected)
