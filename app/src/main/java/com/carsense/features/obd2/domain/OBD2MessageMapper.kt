@@ -1,11 +1,11 @@
 package com.carsense.features.obd2.domain
 
-import com.carsense.features.obd2.presentation.model.MessageDisplay
+import com.carsense.features.obd2.presentation.model.MessageModel
 
 /** Utility class to help with OBD2Message display */
 object OBD2MessageMapper {
     /** Convert an OBD2Message to a UI-friendly display model */
-    fun convertToBluetoothMessage(message: OBD2Message): MessageDisplay {
+    fun convertToBluetoothMessage(message: OBD2Message): MessageModel {
         val sender =
             when (message.type) {
                 OBD2MessageType.COMMAND -> "User"
@@ -13,7 +13,7 @@ object OBD2MessageMapper {
                 OBD2MessageType.RESPONSE -> "Decoded"
             }
 
-        return MessageDisplay(
+        return MessageModel(
             message = message.content,
         )
     }

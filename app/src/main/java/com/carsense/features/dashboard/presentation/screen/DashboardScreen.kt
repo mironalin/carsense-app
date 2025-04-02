@@ -28,21 +28,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.carsense.features.bluetooth.presentation.model.BluetoothState
-import com.carsense.features.obd2.presentation.model.MessageDisplay
+import com.carsense.features.obd2.presentation.model.MessageModel
 
 /**
  * Screen for OBD2 diagnostics that allows sending commands and viewing responses. Provides a set of
  * common OBD2 commands as buttons and displays the command history.
  */
 @Composable
-fun OBD2Screen(state: BluetoothState, onDisconnect: () -> Unit, onSendCommand: (String) -> Unit) {
+fun DashboardScreen(
+    state: BluetoothState,
+    onDisconnect: () -> Unit,
+    onSendCommand: (String) -> Unit
+) {
     var command by remember { mutableStateOf("") }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
+    Column(modifier = Modifier
+        .fillMaxSize()
+        .padding(16.dp)) {
         Text(
             text = "OBD2 Diagnostics",
             style = MaterialTheme.typography.headlineMedium,
@@ -50,12 +52,10 @@ fun OBD2Screen(state: BluetoothState, onDisconnect: () -> Unit, onSendCommand: (
         )
 
         // Message display area
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .padding(vertical = 8.dp)
-        ) {
+        LazyColumn(modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f)
+            .padding(vertical = 8.dp)) {
             items(state.messages) { message ->
                 MessageItem(message = message)
                 Spacer(modifier = Modifier.height(4.dp))
@@ -108,7 +108,7 @@ fun OBD2Screen(state: BluetoothState, onDisconnect: () -> Unit, onSendCommand: (
 }
 
 @Composable
-fun MessageItem(message: MessageDisplay) {
+fun MessageItem(message: MessageModel) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
@@ -122,11 +122,9 @@ fun MessageItem(message: MessageDisplay) {
 
 @Composable
 fun QuickCommandsSection(onCommandSelected: (String) -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-    ) {
+    Column(modifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 8.dp)) {
         Text(
             text = "Quick Commands",
             style = MaterialTheme.typography.titleMedium,
