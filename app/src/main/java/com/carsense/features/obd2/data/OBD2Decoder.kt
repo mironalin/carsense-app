@@ -1,208 +1,120 @@
 package com.carsense.features.obd2.data
 
-object OBD2Decoder {
-    // Standard OBD2 mode 1 PIDs
-    private const val ENGINE_RPM = "010C"
-    private const val VEHICLE_SPEED = "010D"
-    private const val ENGINE_COOLANT_TEMP = "0105"
-    private const val THROTTLE_POSITION = "0111"
-    private const val MAF_SENSOR = "0110"
-    private const val INTAKE_AIR_TEMP = "010F"
-    private const val FUEL_LEVEL = "012F"
-    private const val DISTANCE_WITH_MIL = "0121"
-    private const val MAP_SENSOR = "010B"
+import com.carsense.core.extensions.containsOBD2Error
+import com.carsense.features.obd2.domain.command.CoolantTempCommand
+import com.carsense.features.obd2.domain.command.FuelLevelCommand
+import com.carsense.features.obd2.domain.command.Mode9SupportCommand
+import com.carsense.features.obd2.domain.command.OBD2Command
+import com.carsense.features.obd2.domain.command.RPMCommand
+import com.carsense.features.obd2.domain.command.SpeedCommand
+import com.carsense.features.obd2.domain.command.VINCommand
+import kotlin.reflect.KClass
 
+/** Decodes OBD2 responses from the adapter */
+object OBD2Decoder {
+    // Registry of commands for decoding
+    private val commandRegistry =
+            mapOf<String, OBD2Command>(
+                    // Register commands with their raw command strings as keys
+                    SpeedCommand().getCommand() to SpeedCommand(),
+                    RPMCommand().getCommand() to RPMCommand(),
+                    CoolantTempCommand().getCommand() to CoolantTempCommand(),
+                    FuelLevelCommand().getCommand() to FuelLevelCommand(),
+                    VINCommand().getCommand() to VINCommand(),
+                    Mode9SupportCommand().getCommand() to Mode9SupportCommand()
+                    // Add more commands as they are implemented
+                    )
+
+    // Registry by command class
+    private val commandClassRegistry =
+            mapOf<KClass<out OBD2Command>, OBD2Command>(
+                    SpeedCommand::class to SpeedCommand(),
+                    RPMCommand::class to RPMCommand(),
+                    CoolantTempCommand::class to CoolantTempCommand(),
+                    FuelLevelCommand::class to FuelLevelCommand(),
+                    VINCommand::class to VINCommand(),
+                    Mode9SupportCommand::class to Mode9SupportCommand()
+                    // Add more commands as they are implemented
+                    )
+
+    /** Decodes a raw OBD2 response into a structured OBD2Response */
     fun decodeResponse(command: String, response: String): OBD2Response {
         // Check for errors or "NO DATA" responses
-        if (response.contains("ERROR", ignoreCase = true) ||
-            response.contains("NO DATA", ignoreCase = true) ||
-            response.contains("UNABLE TO CONNECT", ignoreCase = true)
-        ) {
-            return OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = "Error",
-                unit = "",
-                isError = true
-            )
+        if (response.containsOBD2Error()) {
+            return OBD2Response.createError(command, "Error in OBD response", response)
         }
 
         // Check for AT command responses (non-OBD commands)
         if (command.startsWith("AT", ignoreCase = true)) {
             return OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = response,
-                unit = "",
-                isError = false
-            )
-        }
-
-        // For OBD2 responses, remove spaces and filter out non-hex characters
-        val hexData =
-            response.replace(" ", "")
-                .replace("41", "", ignoreCase = true) // Remove mode byte
-                .replace(command.substring(2), "", ignoreCase = true) // Remove PID byte
-                .filter { it.isDigit() || it in 'A'..'F' || it in 'a'..'f' }
-
-        // Decode based on command type
-        return when (command.uppercase()) {
-            ENGINE_RPM -> decodeRPM(command, response, hexData)
-            VEHICLE_SPEED -> decodeSpeed(command, response, hexData)
-            ENGINE_COOLANT_TEMP -> decodeTemperature(command, response, hexData)
-            THROTTLE_POSITION -> decodePercentage(command, response, hexData)
-            INTAKE_AIR_TEMP -> decodeTemperature(command, response, hexData)
-            FUEL_LEVEL -> decodePercentage(command, response, hexData)
-            MAF_SENSOR -> decodeMAF(command, response, hexData)
-            MAP_SENSOR -> decodeMAP(command, response, hexData)
-            else ->
-                OBD2Response(
                     command = command,
                     rawData = response,
-                    decodedValue = "Raw: $hexData",
+                    decodedValue = response,
                     unit = "",
                     isError = false
+            )
+        }
+
+        // Find the command object that can handle this command
+        val obd2Command = commandRegistry[command.uppercase()]
+
+        // If we have a registered command, use it to parse the response
+        if (obd2Command != null) {
+            try {
+                val sensorReading = obd2Command.parseResponse(response)
+                return OBD2Response(
+                        command = command,
+                        rawData = response,
+                        decodedValue = sensorReading.value,
+                        unit = sensorReading.unit,
+                        isError = sensorReading.isError,
+                        timestamp = sensorReading.timestamp
                 )
+            } catch (e: Exception) {
+                return OBD2Response.createError(
+                        command,
+                        "Error parsing response: ${e.message}",
+                        response
+                )
+            }
         }
-    }
 
-    private fun decodeRPM(command: String, response: String, hexData: String): OBD2Response {
-        return try {
-            val a = hexData.substring(0, 2).toInt(16)
-            val b = hexData.substring(2, 4).toInt(16)
-            val rpm = (a * 256 + b) / 4.0
-
-            OBD2Response(
+        // Fallback for unregistered commands: return raw data
+        return OBD2Response(
                 command = command,
                 rawData = response,
-                decodedValue = rpm.toInt().toString(),
-                unit = "RPM",
-                isError = false
-            )
-        } catch (e: Exception) {
-            OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = "Error parsing",
+                decodedValue = "Raw: $response",
                 unit = "",
-                isError = true
-            )
-        }
-    }
-
-    private fun decodeSpeed(command: String, response: String, hexData: String): OBD2Response {
-        return try {
-            val speed = hexData.toInt(16)
-
-            OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = speed.toString(),
-                unit = "km/h",
                 isError = false
-            )
-        } catch (e: Exception) {
-            OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = "Error parsing",
-                unit = "",
-                isError = true
-            )
-        }
+        )
     }
 
-    private fun decodeTemperature(
-        command: String,
-        response: String,
-        hexData: String
+    /** Decode a response using a specific command class */
+    fun <T : OBD2Command> decodeWithCommand(
+            commandClass: KClass<T>,
+            response: String
     ): OBD2Response {
-        return try {
-            val temp = hexData.toInt(16) - 40
+        val command =
+                commandClassRegistry[commandClass]
+                        ?: return OBD2Response.createError(
+                                "",
+                                "Unknown command class: ${commandClass.simpleName}"
+                        )
 
-            OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = temp.toString(),
-                unit = "°C",
-                isError = false
-            )
+        try {
+            val sensorReading = command.parseResponse(response)
+            return OBD2Response.fromSensorReading(sensorReading, command.getCommand())
         } catch (e: Exception) {
-            OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = "Error parsing",
-                unit = "",
-                isError = true
+            return OBD2Response.createError(
+                    command.getCommand(),
+                    "Error parsing with ${commandClass.simpleName}: ${e.message}",
+                    response
             )
         }
     }
 
-    private fun decodePercentage(command: String, response: String, hexData: String): OBD2Response {
-        return try {
-            val percentage = hexData.toInt(16) * 100 / 255.0
-
-            OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = String.format("%.1f", percentage),
-                unit = "%",
-                isError = false
-            )
-        } catch (e: Exception) {
-            OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = "Error parsing",
-                unit = "",
-                isError = true
-            )
-        }
-    }
-
-    private fun decodeMAF(command: String, response: String, hexData: String): OBD2Response {
-        return try {
-            val a = hexData.substring(0, 2).toInt(16)
-            val b = hexData.substring(2, 4).toInt(16)
-            val maf = (a * 256 + b) / 100.0
-
-            OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = String.format("%.2f", maf),
-                unit = "g/s",
-                isError = false
-            )
-        } catch (e: Exception) {
-            OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = "Error parsing",
-                unit = "",
-                isError = true
-            )
-        }
-    }
-
-    private fun decodeMAP(command: String, response: String, hexData: String): OBD2Response {
-        return try {
-            val pressure = hexData.toInt(16)
-
-            OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = pressure.toString(),
-                unit = "kPa",
-                isError = false
-            )
-        } catch (e: Exception) {
-            OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = "Error parsing",
-                unit = "",
-                isError = true
-            )
-        }
+    /** Get a command object by its class */
+    fun <T : OBD2Command> getCommand(commandClass: KClass<T>): T? {
+        @Suppress("UNCHECKED_CAST") return commandClassRegistry[commandClass] as? T
     }
 }

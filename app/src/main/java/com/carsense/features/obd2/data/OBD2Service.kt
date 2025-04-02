@@ -1,18 +1,20 @@
 package com.carsense.features.obd2.data
 
 import android.util.Log
-import com.carsense.features.bluetooth.domain.TransferFailedException
+import com.carsense.features.obd2.domain.command.RPMCommand
+import com.carsense.features.obd2.domain.constants.OBD2Constants
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
-import java.io.IOException
-import java.io.InputStream
-import java.io.OutputStream
 
-class OBD2Service(private val socket: InputStream, private val outputStream: OutputStream) {
+/** Service that handles direct communication with the ELM327 OBD2 adapter */
+class OBD2Service(private val inputStream: InputStream, private val outputStream: OutputStream) {
     companion object {
         private const val TAG = "OBD2Service"
         private const val PROMPT = ">"
@@ -25,6 +27,7 @@ class OBD2Service(private val socket: InputStream, private val outputStream: Out
     private var lastCommand: String = ""
     private var isConnected = true
 
+    /** Validates the connection to the OBD adapter */
     private suspend fun validateConnection(): Boolean {
         if (!isConnected) {
             return false
@@ -32,24 +35,20 @@ class OBD2Service(private val socket: InputStream, private val outputStream: Out
 
         try {
             // Ping with a simple AT command
-            val bytes = byteArrayOf(0x41, 0x54, 0x0D, 0x0A) // AT\r\n
-            outputStream.write(bytes)
+            val pingCommand = CR.toByteArray()
+            outputStream.write(pingCommand)
             outputStream.flush()
 
             // Wait a bit for response
             delay(500)
 
             // Check if there's any response
-            if (socket.available() > 0) {
+            if (inputStream.available() > 0) {
                 return true
             }
 
-            // Try once more with a carriage return
-            outputStream.write(CR.toByteArray())
-            outputStream.flush()
-            delay(500)
-
-            return socket.available() > 0
+            // Try with ATI command (identify adapter)
+            return sendCommand("ATI")
         } catch (e: IOException) {
             Log.e(TAG, "Connection validation failed: ${e.message}")
             isConnected = false
@@ -57,6 +56,7 @@ class OBD2Service(private val socket: InputStream, private val outputStream: Out
         }
     }
 
+    /** Sends a command to the OBD adapter */
     suspend fun sendCommand(command: String): Boolean {
         return withContext(Dispatchers.IO) {
             var retries = 0
@@ -98,80 +98,95 @@ class OBD2Service(private val socket: InputStream, private val outputStream: Out
         }
     }
 
+    /** Listen for responses from the OBD adapter */
     fun listenForResponses(): Flow<OBD2Response> {
         return flow {
-            if (!isConnected) {
-                Log.e(TAG, "Cannot listen for responses - not connected")
-                return@flow
-            }
-
-            val buffer = StringBuilder()
-            val responseBuffer = ByteArray(1024)
-
-            try {
-                while (isConnected) {
-                    val available = socket.available()
-                    if (available <= 0) {
-                        delay(100) // Avoid tight polling loop
-                        continue
+                    if (!isConnected) {
+                        Log.e(TAG, "Cannot listen for responses - not connected")
+                        val errorResponse = OBD2Response.createError("", "Not connected to adapter")
+                        emit(errorResponse)
+                        return@flow
                     }
 
-                    val byteCount =
-                        try {
-                            val count = socket.read(responseBuffer)
-                            Log.d(TAG, "Read $count bytes from socket")
-                            count
-                        } catch (e: IOException) {
-                            Log.e(TAG, "Error reading from socket: ${e.message}")
-                            isConnected = false
-                            throw TransferFailedException()
+                    val buffer = StringBuilder()
+                    val responseBuffer = ByteArray(1024)
+
+                    try {
+                        while (isConnected) {
+                            val available = inputStream.available()
+                            if (available <= 0) {
+                                delay(100) // Avoid tight polling loop
+                                continue
+                            }
+
+                            val byteCount =
+                                    try {
+                                        val count = inputStream.read(responseBuffer)
+                                        Log.d(TAG, "Read $count bytes from socket")
+                                        count
+                                    } catch (e: IOException) {
+                                        Log.e(TAG, "Error reading from socket: ${e.message}")
+                                        isConnected = false
+                                        throw IOException("Failed to read from OBD adapter", e)
+                                    }
+
+                            if (byteCount <= 0) {
+                                continue
+                            }
+
+                            val response = responseBuffer.decodeToString(endIndex = byteCount)
+                            Log.d(TAG, "Received raw data: $response")
+                            buffer.append(response)
+
+                            // Process complete responses (ending with prompt)
+                            // ELM327 responses end with '>' character
+                            while (buffer.contains(PROMPT)) {
+                                val endIndex = buffer.indexOf(PROMPT)
+                                val completeResponse =
+                                        buffer.substring(0, endIndex)
+                                                .trim()
+                                                .replace(CR, "")
+                                                .replace(LF, "")
+
+                                if (completeResponse.isNotEmpty()) {
+                                    Log.d(
+                                            TAG,
+                                            "Complete response for $lastCommand: $completeResponse"
+                                    )
+
+                                    // Decode the OBD2 response
+                                    val decodedResponse =
+                                            OBD2Decoder.decodeResponse(
+                                                    lastCommand,
+                                                    completeResponse
+                                            )
+                                    Log.d(
+                                            TAG,
+                                            "Decoded response: value=${decodedResponse.decodedValue}, unit=${decodedResponse.unit}, isError=${decodedResponse.isError}"
+                                    )
+                                    emit(decodedResponse)
+                                }
+
+                                buffer.delete(0, endIndex + 1)
+                            }
                         }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error in response listener: ${e.message}")
+                        isConnected = false
+                        e.printStackTrace()
 
-                    if (byteCount <= 0) {
-                        continue
-                    }
-
-                    val response = responseBuffer.decodeToString(endIndex = byteCount)
-                    Log.d(TAG, "Received raw data: $response")
-                    buffer.append(response)
-
-                    // Process complete responses (ending with prompt)
-                    // ELM327 responses end with '>' character
-                    while (buffer.contains(PROMPT)) {
-                        val endIndex = buffer.indexOf(PROMPT)
-                        val completeResponse =
-                            buffer.substring(0, endIndex)
-                                .trim()
-                                .replace(CR, "")
-                                .replace(LF, "")
-
-                        if (completeResponse.isNotEmpty()) {
-                            Log.d(
-                                TAG,
-                                "Complete response for $lastCommand: $completeResponse"
-                            )
-
-                            // Decode the OBD2 response
-                            val decodedResponse =
-                                OBD2Decoder.decodeResponse(
-                                    lastCommand,
-                                    completeResponse
+                        val errorResponse =
+                                OBD2Response.createError(
+                                        lastCommand,
+                                        "Error: ${e.message ?: "Unknown error"}"
                                 )
-                            emit(decodedResponse)
-                        }
-
-                        buffer.delete(0, endIndex + 1)
+                        emit(errorResponse)
                     }
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in response listener: ${e.message}")
-                isConnected = false
-                e.printStackTrace()
-            }
-        }
-            .flowOn(Dispatchers.IO)
+                .flowOn(Dispatchers.IO)
     }
 
+    /** Initialize the OBD2 adapter with setup commands */
     suspend fun initialize(): Boolean {
         return withContext(Dispatchers.IO) {
             Log.d(TAG, "Starting ELM327 initialization")
@@ -197,62 +212,102 @@ class OBD2Service(private val socket: InputStream, private val outputStream: Out
                     }
 
                     // Reset the ELM327
-                    Log.d(TAG, "Sending reset command ATZ")
-                    success = sendCommand("ATZ")
+                    Log.d(TAG, "Sending reset command")
+                    success = sendCommand(OBD2Constants.RESET_COMMAND)
                     if (!success) {
-                        Log.e(TAG, "ATZ command failed")
+                        Log.e(TAG, "Reset command failed")
                         return@withContext false
                     }
                     delay(2000) // ELM327 needs time to reset
 
                     // Turn off echo
-                    Log.d(TAG, "Turning off echo ATE0")
-                    success = sendCommand("ATE0")
+                    Log.d(TAG, "Turning off echo")
+                    success = sendCommand(OBD2Constants.ECHO_OFF_COMMAND)
                     if (!success) {
-                        Log.e(TAG, "ATE0 command failed")
+                        Log.e(TAG, "Echo off command failed")
                         return@withContext false
                     }
                     delay(300)
 
                     // Turn off line feeds
-                    Log.d(TAG, "Turning off linefeeds ATL0")
-                    success = sendCommand("ATL0")
+                    Log.d(TAG, "Turning off linefeeds")
+                    success = sendCommand(OBD2Constants.LINEFEED_OFF_COMMAND)
                     if (!success) {
-                        Log.e(TAG, "ATL0 command failed")
+                        Log.e(TAG, "Linefeeds off command failed")
                         return@withContext false
                     }
                     delay(300)
 
-                    // Turn off headers
-                    Log.d(TAG, "Turning off headers ATH0")
-                    success = sendCommand("ATH0")
+                    // Turn on headers
+                    Log.d(TAG, "Turning on headers")
+                    success = sendCommand(OBD2Constants.HEADER_ON_COMMAND)
                     if (!success) {
-                        Log.e(TAG, "ATH0 command failed")
+                        Log.e(TAG, "Headers on command failed")
                         return@withContext false
                     }
                     delay(300)
 
                     // Set protocol to auto
-                    Log.d(TAG, "Setting protocol to auto ATSP0")
-                    success = sendCommand("ATSP0")
+                    Log.d(TAG, "Setting protocol to auto")
+                    success = sendCommand(OBD2Constants.PROTOCOL_AUTO_COMMAND)
                     if (!success) {
-                        Log.e(TAG, "ATSP0 command failed")
+                        Log.e(TAG, "Auto protocol command failed")
+                        return@withContext false
+                    }
+
+                    // Turn off spaces
+                    Log.d(TAG, "Turning off spaces")
+                    success = sendCommand(OBD2Constants.SPACES_OFF_COMMAND)
+                    if (!success) {
+                        Log.e(TAG, "Spaces off command failed")
+                        return@withContext false
+                    }
+
+                    // Allow long messages
+                    Log.d(TAG, "Allowing long messages")
+                    success = sendCommand(OBD2Constants.LONG_MESSAGES_COMMAND)
+                    if (!success) {
+                        Log.e(TAG, "Long messages command failed")
                         return@withContext false
                     }
 
                     Log.d(TAG, "ELM327 initialization complete")
-                    success
+                    return@withContext success
                 } catch (e: Exception) {
                     Log.e(TAG, "Initialization exception: ${e.message}")
                     e.printStackTrace()
                     isConnected = false
-                    false
+                    return@withContext false
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Outer initialization exception: ${e.message}")
+                Log.e(TAG, "Initialization outer exception: ${e.message}")
                 e.printStackTrace()
                 isConnected = false
-                false
+                return@withContext false
+            }
+        }
+    }
+
+    /** Sends OBD2 diagnostic command to check vehicle readiness */
+    suspend fun checkVehicleConnection(): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Test with RPM command which is usually supported
+                val rpmCommand = OBD2Decoder.getCommand(RPMCommand::class)?.getCommand() ?: "010C"
+                val success = sendCommand(rpmCommand)
+
+                if (!success) {
+                    return@withContext false
+                }
+
+                // Wait for response
+                delay(1000)
+
+                // If we get this far, assume we're connected
+                return@withContext true
+            } catch (e: Exception) {
+                Log.e(TAG, "Vehicle connection check failed: ${e.message}")
+                return@withContext false
             }
         }
     }
