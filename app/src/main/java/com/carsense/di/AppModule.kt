@@ -1,8 +1,8 @@
 package com.carsense.di
 
 import android.content.Context
-import com.carsense.data.chat.AndroidBluetoothController
-import com.carsense.domain.chat.BluetoothController
+import com.carsense.data.bluetooth.AndroidBluetoothController
+import com.carsense.domain.bluetooth.BluetoothController
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
