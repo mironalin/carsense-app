@@ -62,8 +62,8 @@ object OBD2CommandTester {
      * @return True if VIN is supported, false otherwise
      */
     private suspend fun testMode9Support(
-            service: OBD2Service,
-            command: Mode9SupportCommand
+        service: OBD2Service,
+        command: Mode9SupportCommand
     ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
@@ -119,24 +119,24 @@ object OBD2CommandTester {
      * @param commandClass The command class to test
      */
     fun testCommandByType(
-            service: OBD2Service,
-            scope: CoroutineScope,
-            commandClass: Class<out OBD2Command>
+        service: OBD2Service,
+        scope: CoroutineScope,
+        commandClass: Class<out OBD2Command>
     ) {
         scope.launch {
             val command =
-                    when (commandClass) {
-                        RPMCommand::class.java -> RPMCommand()
-                        SpeedCommand::class.java -> SpeedCommand()
-                        CoolantTempCommand::class.java -> CoolantTempCommand()
-                        FuelLevelCommand::class.java -> FuelLevelCommand()
-                        VINCommand::class.java -> VINCommand()
-                        Mode9SupportCommand::class.java -> Mode9SupportCommand()
-                        else -> {
-                            Log.e(TAG, "Unknown command class: ${commandClass.simpleName}")
-                            return@launch
-                        }
+                when (commandClass) {
+                    RPMCommand::class.java -> RPMCommand()
+                    SpeedCommand::class.java -> SpeedCommand()
+                    CoolantTempCommand::class.java -> CoolantTempCommand()
+                    FuelLevelCommand::class.java -> FuelLevelCommand()
+                    VINCommand::class.java -> VINCommand()
+                    Mode9SupportCommand::class.java -> Mode9SupportCommand()
+                    else -> {
+                        Log.e(TAG, "Unknown command class: ${commandClass.simpleName}")
+                        return@launch
                     }
+                }
 
             testCommand(service, command)
         }

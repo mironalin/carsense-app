@@ -102,17 +102,17 @@ abstract class OBD2Command : Command<SensorReading> {
             val parts = response.split(" ")
             // Find the mode response (should be 41, 42, 43, etc.)
             val modeIndex =
-                    parts.indexOfFirst {
-                        it == "41" ||
-                                it == "42" ||
-                                it == "43" ||
-                                it == "44" ||
-                                it == "45" ||
-                                it == "46" ||
-                                it == "47" ||
-                                it == "48" ||
-                                it == "49"
-                    }
+                parts.indexOfFirst {
+                    it == "41" ||
+                            it == "42" ||
+                            it == "43" ||
+                            it == "44" ||
+                            it == "45" ||
+                            it == "46" ||
+                            it == "47" ||
+                            it == "48" ||
+                            it == "49"
+                }
 
             if (modeIndex >= 0 && modeIndex + 2 < parts.size) {
                 val dataBytes = parts.subList(modeIndex + 2, parts.size)
@@ -127,7 +127,7 @@ abstract class OBD2Command : Command<SensorReading> {
             val expectedPid = pid.uppercase()
 
             println(
-                    "OBD2Command: Looking for mode $expectedMode and PID $expectedPid in: $response"
+                "OBD2Command: Looking for mode $expectedMode and PID $expectedPid in: $response"
             )
 
             // Find where the mode+PID starts
@@ -138,7 +138,7 @@ abstract class OBD2Command : Command<SensorReading> {
                 if (dataStart < response.length) {
                     val dataBytes = response.substring(dataStart).chunked(2)
                     println(
-                            "OBD2Command: Found mode+PID at index $modeIndex, extracted data: $dataBytes"
+                        "OBD2Command: Found mode+PID at index $modeIndex, extracted data: $dataBytes"
                     )
                     return dataBytes
                 }
@@ -168,28 +168,28 @@ abstract class OBD2Command : Command<SensorReading> {
     /** Creates a SensorReading representing a successful response */
     protected fun createSuccessReading(value: String, rawValue: String): SensorReading {
         return SensorReading(
-                name = displayName,
-                value = value,
-                unit = unit,
-                pid = pid,
-                mode = mode,
-                timestamp = System.currentTimeMillis(),
-                rawValue = rawValue,
-                isError = false
+            name = displayName,
+            value = value,
+            unit = unit,
+            pid = pid,
+            mode = mode,
+            timestamp = System.currentTimeMillis(),
+            rawValue = rawValue,
+            isError = false
         )
     }
 
     /** Creates a SensorReading representing an error */
     protected fun createErrorReading(errorMessage: String): SensorReading {
         return SensorReading(
-                name = displayName,
-                value = errorMessage,
-                unit = "",
-                pid = pid,
-                mode = mode,
-                timestamp = System.currentTimeMillis(),
-                rawValue = "",
-                isError = true
+            name = displayName,
+            value = errorMessage,
+            unit = "",
+            pid = pid,
+            mode = mode,
+            timestamp = System.currentTimeMillis(),
+            rawValue = "",
+            isError = true
         )
     }
 

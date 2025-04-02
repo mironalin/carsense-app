@@ -38,6 +38,7 @@ class RPMCommand : OBD2Command() {
                 println("RPMCommand: Single byte format, value: $value")
                 value.toString()
             }
+
             2 -> {
                 // Standard 2-byte format: (A * 256 + B) / 4
                 val a = dataBytes[0].hexToInt()
@@ -46,6 +47,7 @@ class RPMCommand : OBD2Command() {
                 println("RPMCommand: Standard 2-byte format, A: $a, B: $b, RPM: $rpm")
                 rpm.toInt().toString()
             }
+
             else -> {
                 // Try to use the first 2 bytes if available
                 if (dataBytes.size >= 2) {
@@ -53,7 +55,7 @@ class RPMCommand : OBD2Command() {
                     val b = dataBytes[1].hexToInt()
                     val rpm = (a * 256 + b) / 4.0
                     println(
-                            "RPMCommand: Using first 2 bytes from multiple, A: $a, B: $b, RPM: $rpm"
+                        "RPMCommand: Using first 2 bytes from multiple, A: $a, B: $b, RPM: $rpm"
                     )
                     rpm.toInt().toString()
                 } else {

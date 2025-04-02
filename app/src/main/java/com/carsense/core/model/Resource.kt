@@ -23,7 +23,7 @@ sealed class Resource<out T> {
 
         /** Create an Error resource */
         fun <T> error(message: String, throwable: Throwable? = null): Resource<T> =
-                Error(message, throwable)
+            Error(message, throwable)
     }
 
     /** Transform the wrapped data */
@@ -37,10 +37,10 @@ sealed class Resource<out T> {
 
     /** Get the data or null if not in Success state */
     fun getOrNull(): T? =
-            when (this) {
-                is Success -> data
-                else -> null
-            }
+        when (this) {
+            is Success -> data
+            else -> null
+        }
 
     /** Execute code block if resource is in Success state */
     inline fun onSuccess(action: (T) -> Unit): Resource<T> {

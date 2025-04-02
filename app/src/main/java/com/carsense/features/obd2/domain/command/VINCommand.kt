@@ -25,11 +25,11 @@ class VINCommand : OBD2Command() {
         try {
             // Check if we have a response with FF (not supported)
             if (cleanedResponse.contains("FF") &&
-                            cleanedResponse.count { it == 'F' } > cleanedResponse.length / 3
+                cleanedResponse.count { it == 'F' } > cleanedResponse.length / 3
             ) {
                 println("VINCommand: Response contains many FF bytes, VIN likely not supported")
                 throw IllegalArgumentException(
-                        "VIN not supported by vehicle (response contains mostly FF)"
+                    "VIN not supported by vehicle (response contains mostly FF)"
                 )
             }
 
@@ -45,11 +45,11 @@ class VINCommand : OBD2Command() {
             val isCAN = cleanedResponse.contains(":")
 
             val vinBytes =
-                    if (isCAN) {
-                        parseCANFormat(lines)
-                    } else {
-                        parseStandardFormat(lines)
-                    }
+                if (isCAN) {
+                    parseCANFormat(lines)
+                } else {
+                    parseStandardFormat(lines)
+                }
 
             // Convert bytes to ASCII characters
             val vin = vinBytes.map { it.toChar() }.joinToString("")
@@ -145,11 +145,11 @@ class VINCommand : OBD2Command() {
     private fun parseHexBytes(hexString: String): List<Int> {
         // Handle space-separated or continuous hex
         val hexValues =
-                if (hexString.contains(" ")) {
-                    hexString.split(" ")
-                } else {
-                    hexString.chunked(2)
-                }
+            if (hexString.contains(" ")) {
+                hexString.split(" ")
+            } else {
+                hexString.chunked(2)
+            }
 
         return hexValues.mapNotNull { hex ->
             try {

@@ -14,28 +14,28 @@ import kotlin.reflect.KClass
 object OBD2Decoder {
     // Registry of commands for decoding
     private val commandRegistry =
-            mapOf<String, OBD2Command>(
-                    // Register commands with their raw command strings as keys
-                    SpeedCommand().getCommand() to SpeedCommand(),
-                    RPMCommand().getCommand() to RPMCommand(),
-                    CoolantTempCommand().getCommand() to CoolantTempCommand(),
-                    FuelLevelCommand().getCommand() to FuelLevelCommand(),
-                    VINCommand().getCommand() to VINCommand(),
-                    Mode9SupportCommand().getCommand() to Mode9SupportCommand()
-                    // Add more commands as they are implemented
-                    )
+        mapOf<String, OBD2Command>(
+            // Register commands with their raw command strings as keys
+            SpeedCommand().getCommand() to SpeedCommand(),
+            RPMCommand().getCommand() to RPMCommand(),
+            CoolantTempCommand().getCommand() to CoolantTempCommand(),
+            FuelLevelCommand().getCommand() to FuelLevelCommand(),
+            VINCommand().getCommand() to VINCommand(),
+            Mode9SupportCommand().getCommand() to Mode9SupportCommand()
+            // Add more commands as they are implemented
+        )
 
     // Registry by command class
     private val commandClassRegistry =
-            mapOf<KClass<out OBD2Command>, OBD2Command>(
-                    SpeedCommand::class to SpeedCommand(),
-                    RPMCommand::class to RPMCommand(),
-                    CoolantTempCommand::class to CoolantTempCommand(),
-                    FuelLevelCommand::class to FuelLevelCommand(),
-                    VINCommand::class to VINCommand(),
-                    Mode9SupportCommand::class to Mode9SupportCommand()
-                    // Add more commands as they are implemented
-                    )
+        mapOf<KClass<out OBD2Command>, OBD2Command>(
+            SpeedCommand::class to SpeedCommand(),
+            RPMCommand::class to RPMCommand(),
+            CoolantTempCommand::class to CoolantTempCommand(),
+            FuelLevelCommand::class to FuelLevelCommand(),
+            VINCommand::class to VINCommand(),
+            Mode9SupportCommand::class to Mode9SupportCommand()
+            // Add more commands as they are implemented
+        )
 
     /** Decodes a raw OBD2 response into a structured OBD2Response */
     fun decodeResponse(command: String, response: String): OBD2Response {
@@ -47,11 +47,11 @@ object OBD2Decoder {
         // Check for AT command responses (non-OBD commands)
         if (command.startsWith("AT", ignoreCase = true)) {
             return OBD2Response(
-                    command = command,
-                    rawData = response,
-                    decodedValue = response,
-                    unit = "",
-                    isError = false
+                command = command,
+                rawData = response,
+                decodedValue = response,
+                unit = "",
+                isError = false
             )
         }
 
@@ -63,52 +63,52 @@ object OBD2Decoder {
             try {
                 val sensorReading = obd2Command.parseResponse(response)
                 return OBD2Response(
-                        command = command,
-                        rawData = response,
-                        decodedValue = sensorReading.value,
-                        unit = sensorReading.unit,
-                        isError = sensorReading.isError,
-                        timestamp = sensorReading.timestamp
+                    command = command,
+                    rawData = response,
+                    decodedValue = sensorReading.value,
+                    unit = sensorReading.unit,
+                    isError = sensorReading.isError,
+                    timestamp = sensorReading.timestamp
                 )
             } catch (e: Exception) {
                 return OBD2Response.createError(
-                        command,
-                        "Error parsing response: ${e.message}",
-                        response
+                    command,
+                    "Error parsing response: ${e.message}",
+                    response
                 )
             }
         }
 
         // Fallback for unregistered commands: return raw data
         return OBD2Response(
-                command = command,
-                rawData = response,
-                decodedValue = "Raw: $response",
-                unit = "",
-                isError = false
+            command = command,
+            rawData = response,
+            decodedValue = "Raw: $response",
+            unit = "",
+            isError = false
         )
     }
 
     /** Decode a response using a specific command class */
     fun <T : OBD2Command> decodeWithCommand(
-            commandClass: KClass<T>,
-            response: String
+        commandClass: KClass<T>,
+        response: String
     ): OBD2Response {
         val command =
-                commandClassRegistry[commandClass]
-                        ?: return OBD2Response.createError(
-                                "",
-                                "Unknown command class: ${commandClass.simpleName}"
-                        )
+            commandClassRegistry[commandClass]
+                ?: return OBD2Response.createError(
+                    "",
+                    "Unknown command class: ${commandClass.simpleName}"
+                )
 
         try {
             val sensorReading = command.parseResponse(response)
             return OBD2Response.fromSensorReading(sensorReading, command.getCommand())
         } catch (e: Exception) {
             return OBD2Response.createError(
-                    command.getCommand(),
-                    "Error parsing with ${commandClass.simpleName}: ${e.message}",
-                    response
+                command.getCommand(),
+                "Error parsing with ${commandClass.simpleName}: ${e.message}",
+                response
             )
         }
     }

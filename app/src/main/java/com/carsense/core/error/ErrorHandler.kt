@@ -40,9 +40,11 @@ object ErrorHandler {
             response.contains("NO DATA") -> AppError.OBD2Error("No data received from vehicle")
             response.contains("ERROR") -> AppError.OBD2Error("General error in OBD command")
             response.contains("UNABLE TO CONNECT") ->
-                    AppError.ConnectionError("Unable to connect to vehicle ECU")
+                AppError.ConnectionError("Unable to connect to vehicle ECU")
+
             response.contains("BUS INIT") ->
-                    AppError.ConnectionError("Failed to initialize OBD bus")
+                AppError.ConnectionError("Failed to initialize OBD bus")
+
             response.contains("BUS BUSY") -> AppError.OBD2Error("OBD bus is busy")
             response.contains("FB ERROR") -> AppError.OBD2Error("Feedback error")
             response.contains("DATA ERROR") -> AppError.ParseError("Data error in OBD response")

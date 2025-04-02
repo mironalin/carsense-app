@@ -44,11 +44,11 @@ fun String.containsOBD2Error(): Boolean {
  */
 fun String.formatOBD2Command(addSpaces: Boolean = false): String {
     val command =
-            if (addSpaces) {
-                this.chunked(2).joinToString(" ")
-            } else {
-                this
-            }
+        if (addSpaces) {
+            this.chunked(2).joinToString(" ")
+        } else {
+            this
+        }
     return "$command\r"
 }
 
