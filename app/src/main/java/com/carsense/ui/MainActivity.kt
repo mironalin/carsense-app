@@ -22,18 +22,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.compose.rememberNavController
+import com.carsense.core.navigation.AppNavigation
 import com.carsense.features.bluetooth.presentation.intent.BluetoothIntent
-import com.carsense.features.bluetooth.presentation.screen.BluetoothDeviceScreen
 import com.carsense.features.bluetooth.presentation.viewmodel.BluetoothViewModel
-import com.carsense.features.dashboard.presentation.screen.DashboardScreen
-import com.carsense.features.welcome.presentation.screen.WelcomeScreen
 import com.carsense.ui.theme.CarSenseTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -52,108 +48,71 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val enableBluetoothLauncher =
-            registerForActivityResult(
-                ActivityResultContracts.StartActivityForResult()
-            ) { /* Not needed */ }
+                registerForActivityResult(
+                        ActivityResultContracts.StartActivityForResult()
+                ) { /* Not needed */}
 
         val permissionLauncher =
-            registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
-                val canEnableBluetooth =
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        perms[Manifest.permission.BLUETOOTH_CONNECT] == true
-                    } else true
+                registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+                        perms ->
+                    val canEnableBluetooth =
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                perms[Manifest.permission.BLUETOOTH_CONNECT] == true
+                            } else true
 
-                if (canEnableBluetooth && !isBluetoothEnabled) {
-                    enableBluetoothLauncher.launch(
-                        Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-                    )
+                    if (canEnableBluetooth && !isBluetoothEnabled) {
+                        enableBluetoothLauncher.launch(
+                                Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                        )
+                    }
                 }
-            }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             permissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.BLUETOOTH_SCAN,
-                    Manifest.permission.BLUETOOTH_CONNECT,
-                )
+                    arrayOf(
+                            Manifest.permission.BLUETOOTH_SCAN,
+                            Manifest.permission.BLUETOOTH_CONNECT,
+                    )
             )
         }
 
         setContent {
             CarSenseTheme {
                 val viewModel = hiltViewModel<BluetoothViewModel>()
-                MainScreen(viewModel)
+                val navController = rememberNavController()
+
+                // Main app container
+                Surface(
+                        modifier = Modifier.fillMaxSize(),
+                ) {
+                    // Use our navigation graph from core
+                    AppNavigation(navController = navController, bluetoothViewModel = viewModel)
+
+                    // Show connection and error states
+                    ConnectionStateOverlay(viewModel)
+                }
             }
         }
     }
 }
 
 @Composable
-fun MainScreen(viewModel: BluetoothViewModel) {
+fun ConnectionStateOverlay(viewModel: BluetoothViewModel) {
     val state by viewModel.state.collectAsState()
-    var showDeviceList by remember { mutableStateOf(false) }
 
-    when {
-        state.isConnecting -> {
-            Surface(
+    // Show connecting overlay
+    if (state.isConnecting) {
+        Surface(
                 modifier = Modifier.fillMaxSize(),
-            ) {
-                Column(
+        ) {
+            Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(text = "Connecting to OBD2 device...")
-                }
-            }
-        }
-
-        state.isConnected -> {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
             ) {
-                DashboardScreen(
-                    state = state,
-                    onDisconnect = {
-                        viewModel.processIntent(BluetoothIntent.DisconnectFromDevice)
-                    },
-                    onSendCommand = { message ->
-                        viewModel.processIntent(BluetoothIntent.SendCommand(message))
-                    }
-                )
-            }
-        }
-
-        showDeviceList -> {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                Column {
-                    // Show device list for connection
-                    BluetoothDeviceScreen(
-                        state = state,
-                        onStartScan = { viewModel.processIntent(BluetoothIntent.StartScan) },
-                        onStopScan = { viewModel.processIntent(BluetoothIntent.StopScan) },
-                        onDeviceClick = { device ->
-                            viewModel.processIntent(BluetoothIntent.ConnectToDevice(device))
-                        },
-                        onStartServer = {
-                            viewModel.processIntent(BluetoothIntent.WaitForConnections)
-                        }
-                    )
-                }
-            }
-        }
-
-        else -> {
-            Surface {
-                WelcomeScreen(
-                    onConnectClick = { showDeviceList = true },
-                    onSettingsClick = { /* Handle settings click */ },
-                    onDarkModeToggle = { /* Handle dark mode toggle */ }
-                )
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(text = "Connecting to OBD2 device...")
             }
         }
     }
@@ -161,16 +120,16 @@ fun MainScreen(viewModel: BluetoothViewModel) {
     // Show error messages if any
     state.errorMessage?.let { errorMessage ->
         AlertDialog(
-            onDismissRequest = { viewModel.processIntent(BluetoothIntent.DismissError) },
-            title = { Text("Connection Error") },
-            text = { Text(errorMessage) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.processIntent(BluetoothIntent.DisconnectFromDevice)
-                    }
-                ) { Text("OK") }
-            }
+                onDismissRequest = { viewModel.processIntent(BluetoothIntent.DismissError) },
+                title = { Text("Connection Error") },
+                text = { Text(errorMessage) },
+                confirmButton = {
+                    Button(
+                            onClick = {
+                                viewModel.processIntent(BluetoothIntent.DisconnectFromDevice)
+                            }
+                    ) { Text("OK") }
+                }
         )
     }
 }

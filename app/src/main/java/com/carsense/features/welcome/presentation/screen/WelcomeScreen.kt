@@ -1,5 +1,6 @@
 package com.carsense.features.welcome.presentation.screen
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -52,10 +53,11 @@ fun WelcomeScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
 
+    BackHandler(enabled = true) { }
+
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-//            .background(Color.Black)
+        modifier = Modifier.fillMaxSize()
+        //            .background(Color.Black)
     ) {
         // Center content
         Column(
@@ -75,7 +77,8 @@ fun WelcomeScreen(
                 Image(
                     painter = painterResource(R.drawable.logo),
                     contentDescription = "CarSense Logo",
-                    colorFilter = if (!isSystemInDarkTheme()) ColorFilter.tint(Color.Black) else null
+                    colorFilter =
+                        if (!isSystemInDarkTheme()) ColorFilter.tint(Color.Black) else null
                 )
             }
 
@@ -88,10 +91,9 @@ fun WelcomeScreen(
                     onConnectClick()
                 },
                 shape = RoundedCornerShape(12.dp),
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
             ) {
                 Icon(
                     imageVector = Icons.Outlined.PlayArrow,
