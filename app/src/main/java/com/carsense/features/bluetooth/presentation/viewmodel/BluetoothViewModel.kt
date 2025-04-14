@@ -67,7 +67,6 @@ class BluetoothViewModel @Inject constructor(private val bluetoothController: Bl
             is BluetoothIntent.StartScan -> startScan()
             is BluetoothIntent.StopScan -> stopScan()
             is BluetoothIntent.SendCommand -> sendMessage(intent.message)
-            is BluetoothIntent.WaitForConnections -> waitForIncomingConnections()
             is BluetoothIntent.DismissError -> _state.update { it.copy(errorMessage = null) }
         }
     }
@@ -82,7 +81,6 @@ class BluetoothViewModel @Inject constructor(private val bluetoothController: Bl
             is BluetoothIntent.StartScan -> currentState
             is BluetoothIntent.StopScan -> currentState
             is BluetoothIntent.SendCommand -> currentState
-            is BluetoothIntent.WaitForConnections -> currentState.copy(isConnecting = true)
             is BluetoothIntent.DismissError -> currentState.copy(errorMessage = null)
         }
     }
@@ -94,10 +92,6 @@ class BluetoothViewModel @Inject constructor(private val bluetoothController: Bl
     private fun disconnectFromDevice() {
         deviceConnectionJob?.cancel()
         bluetoothController.closeConnection()
-    }
-
-    private fun waitForIncomingConnections() {
-        deviceConnectionJob = bluetoothController.startBluetoothServer().listen()
     }
 
     private fun sendMessage(message: String) {

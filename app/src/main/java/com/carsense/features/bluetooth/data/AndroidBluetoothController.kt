@@ -118,66 +118,6 @@ class AndroidBluetoothController(private val context: Context) : BluetoothContro
         bluetoothAdapter?.cancelDiscovery()
     }
 
-    override fun startBluetoothServer(): Flow<ConnectionResult> {
-        return flow {
-            if (!hasPermission(Manifest.permission.BLUETOOTH_CONNECT)) {
-                throw SecurityException("No BLUETOOTH_CONNECT permission")
-            }
-
-            // Use the standard SPP UUID for Bluetooth serial devices
-            currentServerSocket =
-                bluetoothAdapter?.listenUsingRfcommWithServiceRecord(
-                    "OBD2_service",
-                    UUID.fromString(SPP_UUID)
-                )
-
-            Log.d(tag, "Bluetooth server started, waiting for connections...")
-
-            var shouldLoop = true
-            while (shouldLoop) {
-                currentClientSocket =
-                    try {
-                        currentServerSocket?.accept()
-                    } catch (e: IOException) {
-                        Log.e(tag, "Error accepting connection: ${e.message}")
-                        shouldLoop = false
-                        null
-                    }
-
-                if (currentClientSocket != null) {
-                    Log.d(
-                        tag,
-                        "Connection accepted: ${currentClientSocket?.remoteDevice?.address}"
-                    )
-                    emit(ConnectionResult.ConnectionEstablished)
-
-                    currentServerSocket?.close()
-                    val service = OBD2BluetoothService(currentClientSocket!!, context)
-                    dataTransferService = service
-
-                    // Initialize OBD2 connection
-                    val initSuccess = service.initialize()
-                    if (!initSuccess) {
-                        Log.e(tag, "Failed to initialize OBD2 device")
-                        emit(ConnectionResult.Error("Failed to initialize OBD2 device"))
-                        return@flow
-                    }
-
-                    emitAll(
-                        service.listenForOBD2Messages().map {
-                            ConnectionResult.TransferSucceeded(it)
-                        }
-                    )
-                }
-            }
-        }
-            .onCompletion {
-                Log.d(tag, "Server connection completed")
-                closeConnection()
-            }
-            .flowOn(Dispatchers.IO)
-    }
-
     override fun connectToDevice(device: BluetoothDeviceDomain): Flow<ConnectionResult> {
         return flow {
             if (!hasPermission(Manifest.permission.BLUETOOTH_CONNECT)) {
