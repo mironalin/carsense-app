@@ -24,7 +24,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
 import com.carsense.core.navigation.AppNavigation
@@ -47,32 +49,34 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Enable edge-to-edge display
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
         val enableBluetoothLauncher =
-                registerForActivityResult(
-                        ActivityResultContracts.StartActivityForResult()
-                ) { /* Not needed */}
+            registerForActivityResult(
+                ActivityResultContracts.StartActivityForResult()
+            ) { /* Not needed */ }
 
         val permissionLauncher =
-                registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-                        perms ->
-                    val canEnableBluetooth =
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                perms[Manifest.permission.BLUETOOTH_CONNECT] == true
-                            } else true
+            registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
+                val canEnableBluetooth =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        perms[Manifest.permission.BLUETOOTH_CONNECT] == true
+                    } else true
 
-                    if (canEnableBluetooth && !isBluetoothEnabled) {
-                        enableBluetoothLauncher.launch(
-                                Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-                        )
-                    }
+                if (canEnableBluetooth && !isBluetoothEnabled) {
+                    enableBluetoothLauncher.launch(
+                        Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                    )
                 }
+            }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             permissionLauncher.launch(
-                    arrayOf(
-                            Manifest.permission.BLUETOOTH_SCAN,
-                            Manifest.permission.BLUETOOTH_CONNECT,
-                    )
+                arrayOf(
+                    Manifest.permission.BLUETOOTH_SCAN,
+                    Manifest.permission.BLUETOOTH_CONNECT,
+                )
             )
         }
 
@@ -82,9 +86,7 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
 
                 // Main app container
-                Surface(
-                        modifier = Modifier.fillMaxSize(),
-                ) {
+                Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
                     // Use our navigation graph from core
                     AppNavigation(navController = navController, bluetoothViewModel = viewModel)
 
@@ -103,12 +105,12 @@ fun ConnectionStateOverlay(viewModel: BluetoothViewModel) {
     // Show connecting overlay
     if (state.isConnecting) {
         Surface(
-                modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
         ) {
             Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 CircularProgressIndicator()
                 Spacer(modifier = Modifier.height(16.dp))
@@ -120,16 +122,16 @@ fun ConnectionStateOverlay(viewModel: BluetoothViewModel) {
     // Show error messages if any
     state.errorMessage?.let { errorMessage ->
         AlertDialog(
-                onDismissRequest = { viewModel.processIntent(BluetoothIntent.DismissError) },
-                title = { Text("Connection Error") },
-                text = { Text(errorMessage) },
-                confirmButton = {
-                    Button(
-                            onClick = {
-                                viewModel.processIntent(BluetoothIntent.DisconnectFromDevice)
-                            }
-                    ) { Text("OK") }
-                }
+            onDismissRequest = { viewModel.processIntent(BluetoothIntent.DismissError) },
+            title = { Text("Connection Error") },
+            text = { Text(errorMessage) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.processIntent(BluetoothIntent.DisconnectFromDevice)
+                    }
+                ) { Text("OK") }
+            }
         )
     }
 }
