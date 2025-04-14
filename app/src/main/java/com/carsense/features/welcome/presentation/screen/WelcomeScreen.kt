@@ -11,15 +11,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,7 +30,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -42,6 +44,7 @@ import com.carsense.features.welcome.presentation.viewmodel.WelcomeViewModel
 import com.carsense.ui.theme.CarSenseTheme
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Moon
+import com.composables.icons.lucide.Settings
 
 @Composable
 fun WelcomeScreen(
@@ -53,95 +56,120 @@ fun WelcomeScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
 
-    BackHandler(enabled = true) { }
+    BackHandler(enabled = true) {}
 
-    Box(
-        modifier = Modifier.fillMaxSize()
-        //            .background(Color.Black)
-    ) {
-        // Center content
-        Column(
+    Surface(modifier = Modifier.fillMaxSize()) {
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(48.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .statusBarsPadding()
         ) {
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Logo and Brand
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.logo),
-                    contentDescription = "CarSense Logo",
-                    colorFilter =
-                        if (!isSystemInDarkTheme()) ColorFilter.tint(Color.Black) else null
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Connect Button
-            Button(
-                onClick = {
-                    viewModel.onEvent(WelcomeEvent.Connect)
-                    onConnectClick()
-                },
-                shape = RoundedCornerShape(12.dp),
+            // Center content
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
+                    .fillMaxSize()
+                    .padding(48.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.PlayArrow,
-                    contentDescription = "Connect",
-                )
-                Text(
-                    text = "Connect",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Logo and Brand
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.logo),
+                        contentDescription = "CarSense Logo",
+                        colorFilter =
+                            if (!isSystemInDarkTheme())
+                                ColorFilter.tint(
+                                    MaterialTheme.colorScheme
+                                        .onBackground
+                                )
+                            else
+                                ColorFilter.tint(
+                                    MaterialTheme.colorScheme
+                                        .onBackground
+                                )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Connect Button
+                Button(
+                    onClick = {
+                        viewModel.onEvent(WelcomeEvent.Connect)
+                        onConnectClick()
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor =
+                                MaterialTheme.colorScheme.primary,
+                            contentColor =
+                                MaterialTheme.colorScheme.onPrimary
+                        ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.PlayArrow,
+                        contentDescription = "Connect",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Text(
+                        text = "Connect",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
             }
 
-            Spacer(modifier = Modifier.weight(1f))
-        }
-
-        // Bottom navigation
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            IconButton(
-                onClick = {
-                    viewModel.onEvent(WelcomeEvent.ToggleDarkMode)
-                    onDarkModeToggle()
-                }
+            // Bottom navigation
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(
-                    imageVector = Lucide.Moon,
-                    contentDescription = "Dark Mode",
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-
-            IconButton(
-                onClick = {
-                    viewModel.onEvent(WelcomeEvent.OpenSettings)
-                    onSettingsClick()
+                IconButton(
+                    onClick = {
+                        viewModel.onEvent(WelcomeEvent.ToggleDarkMode)
+                        onDarkModeToggle()
+                    }
+                ) {
+                    Icon(
+                        imageVector = Lucide.Moon,
+                        contentDescription = "Dark Mode",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(28.dp)
+                    )
                 }
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Settings,
-                    contentDescription = "Settings",
-                    modifier = Modifier.size(28.dp)
-                )
+
+                IconButton(
+                    onClick = {
+                        viewModel.onEvent(WelcomeEvent.OpenSettings)
+                        onSettingsClick()
+                    }
+                ) {
+                    Icon(
+                        imageVector = Lucide.Settings,
+                        contentDescription = "Settings",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         }
     }
@@ -151,10 +179,12 @@ fun WelcomeScreen(
 @Composable
 fun WelcomeScreenPreview() {
     CarSenseTheme {
-        Surface {
-            CarSenseTheme {
-                WelcomeScreen(onConnectClick = {}, onSettingsClick = {}, onDarkModeToggle = {})
-            }
+        Surface(color = MaterialTheme.colorScheme.background) {
+            WelcomeScreen(
+                onConnectClick = {},
+                onSettingsClick = {},
+                onDarkModeToggle = {}
+            )
         }
     }
 }
