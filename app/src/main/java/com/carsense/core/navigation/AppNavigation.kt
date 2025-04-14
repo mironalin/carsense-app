@@ -15,26 +15,32 @@ import com.carsense.features.welcome.presentation.screen.WelcomeScreen
 
 @Composable
 fun AppNavigation(
-    navController: NavHostController, bluetoothViewModel: BluetoothViewModel = hiltViewModel()
+    navController: NavHostController,
+    bluetoothViewModel: BluetoothViewModel = hiltViewModel()
 ) {
     val bluetoothState by bluetoothViewModel.state.collectAsState()
 
     // Handle state-based navigations outside of NavHost
-    if (bluetoothState.isConnected && navController.currentDestination?.route != NavRoutes.DASHBOARD) {
+    if (bluetoothState.isConnected && navController.currentDestination?.route != NavRoutes.DASHBOARD
+    ) {
         navController.navigateAndClearBackStack(NavRoutes.DASHBOARD)
     }
 
     NavHost(navController = navController, startDestination = NavRoutes.WELCOME) {
         // Welcome Screen
         animatedComposable(NavRoutes.WELCOME) {
-            WelcomeScreen(onConnectClick = {
-                // Use single top to avoid duplicating screens in backstack
-                navController.navigateSingleTop(NavRoutes.DEVICE_LIST)
-            }, onSettingsClick = {
-                // Will implement settings navigation later
-            }, onDarkModeToggle = {
-                // Will implement theme toggle later
-            })
+            WelcomeScreen(
+                onConnectClick = {
+                    // Use single top to avoid duplicating screens in backstack
+                    navController.navigateSingleTop(NavRoutes.DEVICE_LIST)
+                },
+                onSettingsClick = {
+                    // Will implement settings navigation later
+                },
+                onDarkModeToggle = {
+                    // Will implement theme toggle later
+                }
+            )
         }
 
         // Device List Screen
@@ -52,18 +58,23 @@ fun AppNavigation(
                 onBackPressed = {
                     // Clean navigation back to previous screen
                     navController.navigateUp()
-                })
+                }
+            )
         }
 
         // Dashboard Screen
         animatedComposable(NavRoutes.DASHBOARD) {
-            DashboardScreen(state = bluetoothState, onDisconnect = {
-                bluetoothViewModel.processIntent(BluetoothIntent.DisconnectFromDevice)
-                // When disconnected, go back to welcome screen
-                navController.navigateAndClearBackStack(NavRoutes.WELCOME)
-            }, onSendCommand = { message ->
-                bluetoothViewModel.processIntent(BluetoothIntent.SendCommand(message))
-            })
+            DashboardScreen(
+                state = bluetoothState,
+                onDisconnect = {
+                    bluetoothViewModel.processIntent(BluetoothIntent.DisconnectFromDevice)
+                    // When disconnected, go back to welcome screen
+                    navController.navigateAndClearBackStack(NavRoutes.WELCOME)
+                },
+                onSendCommand = { message ->
+                    bluetoothViewModel.processIntent(BluetoothIntent.SendCommand(message))
+                }
+            )
         }
 
         // Settings Screen (to be implemented)
