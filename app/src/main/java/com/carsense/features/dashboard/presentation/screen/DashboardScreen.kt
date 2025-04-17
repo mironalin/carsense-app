@@ -48,7 +48,8 @@ import com.composables.icons.lucide.Wrench
 fun DashboardScreen(
     state: BluetoothState,
     onDisconnect: () -> Unit,
-    onSendCommand: (String) -> Unit
+    onSendCommand: (String) -> Unit,
+    navigateToDTC: () -> Unit = {}
 ) {
     // Use explicit primary color for icons to ensure brand consistency
     val iconColor = MaterialTheme.colorScheme.primary
@@ -75,7 +76,6 @@ fun DashboardScreen(
                     icon = {
                         Icon(imageVector = Lucide.Moon, contentDescription = "Dark Mode")
                     },
-//                            label = { Text("Dark Mode") },
                     selected = false,
                     onClick = { /* Toggle dark mode */ }
                 )
@@ -89,7 +89,6 @@ fun DashboardScreen(
                             tint = MaterialTheme.colorScheme.error
                         )
                     },
-//                    label = { Text("Disconnect") },
                     selected = false,
                     onClick = onDisconnect
                 )
@@ -99,7 +98,6 @@ fun DashboardScreen(
                     icon = {
                         Icon(imageVector = Lucide.Settings, contentDescription = "Settings")
                     },
-//                            label = { Text("Settings") },
                     selected = false,
                     onClick = { /* Open settings */ }
                 )
@@ -139,7 +137,9 @@ fun DashboardScreen(
                 // Error Memory card
                 FeatureCard(
                     title = "Error Memory",
-                    onClick = { onSendCommand("03") }, // DTC command
+                    onClick = {
+                        navigateToDTC()
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .aspectRatio(1f),
