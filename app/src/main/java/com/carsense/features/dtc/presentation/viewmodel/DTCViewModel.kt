@@ -1,17 +1,16 @@
-package com.carsense.features.obd2.presentation.viewmodel
+package com.carsense.features.dtc.presentation.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.carsense.features.obd2.domain.repository.DTCRepository
+import com.carsense.features.dtc.domain.model.DTCError
+import com.carsense.features.dtc.domain.repository.DTCRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-data class DTCError(val code: String, val description: String)
 
 @HiltViewModel
 class DTCViewModel @Inject constructor(private val dtcRepository: DTCRepository) : ViewModel() {

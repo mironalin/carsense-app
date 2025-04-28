@@ -1,12 +1,12 @@
-package com.carsense.features.obd2.data.repository
+package com.carsense.features.dtc.data.repository
 
 import android.util.Log
 import com.carsense.features.bluetooth.domain.BluetoothController
+import com.carsense.features.dtc.domain.command.ClearDTCCommand
+import com.carsense.features.dtc.domain.command.DTCCommand
+import com.carsense.features.dtc.domain.model.DTCError
+import com.carsense.features.dtc.domain.repository.DTCRepository
 import com.carsense.features.obd2.domain.OBD2Message
-import com.carsense.features.obd2.domain.command.ClearDTCCommand
-import com.carsense.features.obd2.domain.command.DTCCommand
-import com.carsense.features.obd2.domain.repository.DTCRepository
-import com.carsense.features.obd2.presentation.viewmodel.DTCError
 import kotlinx.coroutines.delay
 import javax.inject.Inject
 import javax.inject.Singleton

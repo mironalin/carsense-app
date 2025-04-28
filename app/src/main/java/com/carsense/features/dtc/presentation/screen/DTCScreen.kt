@@ -1,4 +1,4 @@
-package com.carsense.features.obd2.presentation.screen
+package com.carsense.features.dtc.presentation.screen
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -46,7 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.carsense.features.obd2.presentation.viewmodel.DTCViewModel
+import com.carsense.features.dtc.presentation.viewmodel.DTCViewModel
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.PlugZap
 import com.composables.icons.lucide.Trash

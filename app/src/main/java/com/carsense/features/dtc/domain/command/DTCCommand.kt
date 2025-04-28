@@ -1,8 +1,9 @@
-package com.carsense.features.obd2.domain.command
+package com.carsense.features.dtc.domain.command
 
 import android.util.Log
 import com.carsense.core.constants.OBD2Constants
-import com.carsense.features.obd2.domain.model.DTCs
+import com.carsense.features.dtc.domain.model.DTCs
+import com.carsense.features.obd2.domain.command.OBD2Command
 import com.carsense.features.obd2.domain.model.ValueResponse
 
 /**

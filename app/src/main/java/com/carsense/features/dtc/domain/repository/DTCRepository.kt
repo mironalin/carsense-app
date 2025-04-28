@@ -1,6 +1,6 @@
-package com.carsense.features.obd2.domain.repository
+package com.carsense.features.dtc.domain.repository
 
-import com.carsense.features.obd2.presentation.viewmodel.DTCError
+import com.carsense.features.dtc.domain.model.DTCError
 
 /** Repository interface for interacting with vehicle Diagnostic Trouble Codes (DTCs) */
 interface DTCRepository {

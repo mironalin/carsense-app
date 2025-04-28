@@ -1,6 +1,7 @@
-package com.carsense.features.obd2.domain.command
+package com.carsense.features.dtc.domain.command
 
 import com.carsense.core.constants.OBD2Constants
+import com.carsense.features.obd2.domain.command.OBD2Command
 
 /**
  * Command to clear Diagnostic Trouble Codes (DTCs) from the vehicle. Uses Mode 04

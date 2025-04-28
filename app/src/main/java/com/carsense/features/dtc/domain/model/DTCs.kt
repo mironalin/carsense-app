@@ -1,4 +1,4 @@
-package com.carsense.features.obd2.domain.model
+package com.carsense.features.dtc.domain.model
 
 /**
  * Represents a collection of Diagnostic Trouble Codes (DTCs) from a vehicle.
