@@ -4,7 +4,7 @@ import com.carsense.core.command.Command
 import com.carsense.core.error.AppError
 import com.carsense.core.extensions.buildOBD2Command
 import com.carsense.core.extensions.containsOBD2Error
-import com.carsense.features.obd2.domain.model.SensorReading
+import com.carsense.features.sensors.domain.model.SensorReading
 
 /** Base class for all OBD2 commands */
 abstract class OBD2Command : Command<SensorReading> {

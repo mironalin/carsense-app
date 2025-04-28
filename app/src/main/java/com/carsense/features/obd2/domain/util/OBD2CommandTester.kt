@@ -2,13 +2,13 @@ package com.carsense.features.obd2.domain.util
 
 import android.util.Log
 import com.carsense.features.obd2.data.OBD2Service
-import com.carsense.features.obd2.domain.command.CoolantTempCommand
-import com.carsense.features.obd2.domain.command.FuelLevelCommand
 import com.carsense.features.obd2.domain.command.Mode9SupportCommand
 import com.carsense.features.obd2.domain.command.OBD2Command
-import com.carsense.features.obd2.domain.command.RPMCommand
-import com.carsense.features.obd2.domain.command.SpeedCommand
 import com.carsense.features.obd2.domain.command.VINCommand
+import com.carsense.features.sensors.domain.command.CoolantTemperatureCommand
+import com.carsense.features.sensors.domain.command.FuelLevelCommand
+import com.carsense.features.sensors.domain.command.RPMCommand
+import com.carsense.features.sensors.domain.command.SpeedCommand
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -35,7 +35,7 @@ object OBD2CommandTester {
             testCommand(service, SpeedCommand())
             delay(2000)
 
-            testCommand(service, CoolantTempCommand())
+            testCommand(service, CoolantTemperatureCommand())
             delay(2000)
 
             testCommand(service, FuelLevelCommand())
@@ -128,7 +128,7 @@ object OBD2CommandTester {
                 when (commandClass) {
                     RPMCommand::class.java -> RPMCommand()
                     SpeedCommand::class.java -> SpeedCommand()
-                    CoolantTempCommand::class.java -> CoolantTempCommand()
+                    CoolantTemperatureCommand::class.java -> CoolantTemperatureCommand()
                     FuelLevelCommand::class.java -> FuelLevelCommand()
                     VINCommand::class.java -> VINCommand()
                     Mode9SupportCommand::class.java -> Mode9SupportCommand()

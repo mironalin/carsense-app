@@ -1,8 +1,8 @@
 package com.carsense.features.obd2.data
 
 import android.util.Log
-import com.carsense.features.obd2.domain.command.RPMCommand
 import com.carsense.features.obd2.domain.constants.OBD2Constants
+import com.carsense.features.sensors.domain.command.RPMCommand
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow

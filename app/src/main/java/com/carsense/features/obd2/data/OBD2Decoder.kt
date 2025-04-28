@@ -1,13 +1,13 @@
 package com.carsense.features.obd2.data
 
 import com.carsense.core.extensions.containsOBD2Error
-import com.carsense.features.obd2.domain.command.CoolantTempCommand
-import com.carsense.features.obd2.domain.command.FuelLevelCommand
 import com.carsense.features.obd2.domain.command.Mode9SupportCommand
 import com.carsense.features.obd2.domain.command.OBD2Command
-import com.carsense.features.obd2.domain.command.RPMCommand
-import com.carsense.features.obd2.domain.command.SpeedCommand
 import com.carsense.features.obd2.domain.command.VINCommand
+import com.carsense.features.sensors.domain.command.CoolantTemperatureCommand
+import com.carsense.features.sensors.domain.command.FuelLevelCommand
+import com.carsense.features.sensors.domain.command.RPMCommand
+import com.carsense.features.sensors.domain.command.SpeedCommand
 import kotlin.reflect.KClass
 
 /** Decodes OBD2 responses from the adapter */
@@ -18,7 +18,7 @@ object OBD2Decoder {
             // Register commands with their raw command strings as keys
             SpeedCommand().getCommand() to SpeedCommand(),
             RPMCommand().getCommand() to RPMCommand(),
-            CoolantTempCommand().getCommand() to CoolantTempCommand(),
+            CoolantTemperatureCommand().getCommand() to CoolantTemperatureCommand(),
             FuelLevelCommand().getCommand() to FuelLevelCommand(),
             VINCommand().getCommand() to VINCommand(),
             Mode9SupportCommand().getCommand() to Mode9SupportCommand()
@@ -30,7 +30,7 @@ object OBD2Decoder {
         mapOf<KClass<out OBD2Command>, OBD2Command>(
             SpeedCommand::class to SpeedCommand(),
             RPMCommand::class to RPMCommand(),
-            CoolantTempCommand::class to CoolantTempCommand(),
+            CoolantTemperatureCommand::class to CoolantTemperatureCommand(),
             FuelLevelCommand::class to FuelLevelCommand(),
             VINCommand::class to VINCommand(),
             Mode9SupportCommand::class to Mode9SupportCommand()
