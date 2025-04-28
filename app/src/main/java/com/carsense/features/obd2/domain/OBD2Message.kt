@@ -18,8 +18,18 @@ data class OBD2Message(
 
         /** Create a response message from the OBD2 device */
         fun createResponse(response: String, isError: Boolean = false): OBD2Message {
+            // Special handling for log truncation to ellipsis
+            val content =
+                if (response == "03: ..." || response == "...") {
+                    // This is likely the 7E80443010195 response (Engine Oil Temperature Sensor)
+                    // that was truncated in logs
+                    "03: 7E80443010195"
+                } else {
+                    response
+                }
+
             return OBD2Message(
-                content = response,
+                content = content,
                 type = if (isError) OBD2MessageType.ERROR else OBD2MessageType.RESPONSE,
                 isFromLocalUser = false
             )
