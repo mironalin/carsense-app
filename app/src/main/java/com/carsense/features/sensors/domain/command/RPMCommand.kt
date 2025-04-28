@@ -1,16 +1,16 @@
-package com.carsense.features.obd2.domain.command
+package com.carsense.features.sensors.domain.command
 
 import com.carsense.core.extensions.hexToInt
-import com.carsense.features.obd2.domain.constants.OBD2Constants
+import com.carsense.features.sensors.domain.constants.SensorConstants
 
-/** OBD command for retrieving the engine RPM */
-class RPMCommand : OBD2Command() {
-    override val mode: Int = OBD2Constants.MODE_CURRENT_DATA
-    override val pid: String = OBD2Constants.PID.ENGINE_RPM
+/** Command for retrieving the engine RPM */
+class RPMCommand : SensorCommand() {
+    override val mode: Int = SensorConstants.MODE_CURRENT_DATA
+    override val pid: String = SensorConstants.PID.ENGINE_RPM
     override val displayName: String = "Engine RPM"
     override val displayDescription: String = "Current engine revolutions per minute"
-    override val minValue: Float = OBD2Constants.Range.RPM.start
-    override val maxValue: Float = OBD2Constants.Range.RPM.endInclusive
+    override val minValue: Float = SensorConstants.Range.RPM.start
+    override val maxValue: Float = SensorConstants.Range.RPM.endInclusive
     override val unit: String = "rpm"
 
     /**
