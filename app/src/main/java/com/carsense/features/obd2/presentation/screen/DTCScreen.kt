@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,6 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -38,13 +41,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carsense.features.obd2.presentation.viewmodel.DTCViewModel
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.PlugZap
 import com.composables.icons.lucide.Trash
+import com.composables.icons.lucide.TriangleAlert
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,15 +100,122 @@ fun DTCScreen(
                 }
             }
 
-            // Error message
-            state.error?.let { errorMessage ->
-                Text(
-                    text = errorMessage,
-                    color = MaterialTheme.colorScheme.error,
+            // Connection Error View
+            if (state.error?.contains("Not connected") == true) {
+                Column(
                     modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(16.dp)
-                )
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Lucide.PlugZap,
+                        contentDescription = "Connection Error",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier
+                            .scale(2f)
+                            .padding(bottom = 24.dp)
+                    )
+
+                    Text(
+                        text = "Connection Lost",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    Text(
+                        text = state.error ?: "Please reconnect to your vehicle",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = { onBackPressed() },
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            )
+                    ) { Text("Back to Dashboard") }
+                }
+            }
+            // Regular Error message
+            else if (state.error != null && !state.isLoading) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    // Check if this is the "no DTCs" special case
+                    if (state.error?.startsWith("NO_DTCS:") == true) {
+                        // Show check mark icon for no DTCs
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "No DTCs",
+                            tint = Color.Green,
+                            modifier = Modifier
+                                .size(64.dp)
+                                .padding(bottom = 16.dp)
+                        )
+
+                        Text(
+                            text = state.error?.substringAfter("NO_DTCS:") ?: "",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+
+                        // Show retry button for no DTCs
+                        Button(
+                            onClick = { viewModel.loadDTCErrors() },
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Scan Again",
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text(text = "Scan Again")
+                        }
+                    } else {
+                        // Standard error display
+                        Icon(
+                            imageVector = Lucide.TriangleAlert,
+                            contentDescription = "Error",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier
+                                .size(64.dp)
+                                .padding(bottom = 16.dp)
+                        )
+
+                        Text(
+                            text = state.error ?: "",
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+
+                        // Show retry button for regular errors
+                        Button(
+                            onClick = { viewModel.loadDTCErrors() },
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Retry",
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text(text = "Try Again")
+                        }
+                    }
+                }
             }
 
             // Content when not loading and no errors
@@ -152,7 +265,9 @@ fun DTCScreen(
                                         description = error.description,
                                         onClick = { onErrorClick(error.code) }
                                     )
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                                    HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.surfaceVariant
+                                    )
                                 }
                             }
                         }
@@ -193,7 +308,6 @@ fun DTCScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(52.dp),
-
                             colors =
                                 ButtonDefaults.buttonColors(
                                     containerColor =
@@ -212,6 +326,37 @@ fun DTCScreen(
                             )
                             Text(
                                 text = "Clear DTC",
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Scan again button
+                        Button(
+                            onClick = { viewModel.loadDTCErrors() },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            colors =
+                                ButtonDefaults.buttonColors(
+                                    containerColor =
+                                        MaterialTheme.colorScheme
+                                            .secondaryContainer,
+                                    contentColor =
+                                        MaterialTheme.colorScheme
+                                            .onSecondaryContainer
+                                )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Scan Again",
+                                modifier = Modifier.padding(end = 4.dp)
+                            )
+                            Text(
+                                text = "Scan Again",
                                 fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.bodyMedium
                             )
