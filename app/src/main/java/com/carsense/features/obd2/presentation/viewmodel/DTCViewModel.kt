@@ -1,7 +1,9 @@
 package com.carsense.features.obd2.presentation.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carsense.features.obd2.domain.repository.DTCRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,58 +14,146 @@ import javax.inject.Inject
 data class DTCError(val code: String, val description: String)
 
 @HiltViewModel
-class DTCViewModel @Inject constructor(
-// Dependencies will be added later
-) : ViewModel() {
+class DTCViewModel @Inject constructor(private val dtcRepository: DTCRepository) : ViewModel() {
+    private val TAG = "DTCViewModel"
 
     // UI state for the DTC screen
     private val _state = MutableStateFlow(DTCState())
     val state: StateFlow<DTCState> = _state.asStateFlow()
 
-    // Initialize with mock data for now
+    // Debug mode - set to true to see detailed information in error messages
+    private val debugMode = true
+
     init {
-        // In the future, this will load data from a repository
-        _state.value =
-            DTCState(
-                dtcErrors =
-                    listOf(
-                        DTCError("P0301", "Cylinder 1 Misfire Detected"),
-                        DTCError(
-                            "P15A7",
-                            "Engine Oil Pressure Too Low Before Start"
-                        ),
-                        DTCError(
-                            "P321E",
-                            "Ambient Pressure Sensor Maximum Pressure"
-                        ),
-                        DTCError("P114F", "Air Mass Flow Sensor Defective")
-                    ),
-                isLoading = false
-            )
+        loadCachedDTCs()
     }
 
-    // Placeholder for future implementation
-    fun loadDTCErrors() {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true)
-
-            // TODO: Implement actual DTC loading logic
-            // This will involve sending OBD2 commands and parsing responses
-
-            _state.value = _state.value.copy(isLoading = false)
+    // Load cached DTCs when the viewmodel is created
+    private fun loadCachedDTCs() {
+        val cachedDTCs = dtcRepository.getCachedDTCs()
+        if (cachedDTCs.isNotEmpty()) {
+            Log.d(TAG, "Loading ${cachedDTCs.size} cached DTCs")
+            _state.value =
+                _state.value.copy(dtcErrors = cachedDTCs, isLoading = false, error = null)
         }
     }
 
-    // Placeholder for future implementation
+    // Load DTCs when the screen is opened
+    fun loadDTCErrors() {
+        viewModelScope.launch {
+            Log.d(TAG, "Loading DTC errors")
+            _state.value = _state.value.copy(isLoading = true, error = null)
+
+            try {
+                // Get DTCs from the repository
+                Log.d(TAG, "Calling repository.getDTCs()")
+                val result = dtcRepository.getDTCs()
+
+                result.fold(
+                    onSuccess = { dtcErrors ->
+                        Log.d(TAG, "DTCs loaded successfully: ${dtcErrors.size} errors")
+                        _state.value =
+                            _state.value.copy(
+                                dtcErrors = dtcErrors,
+                                isLoading = false,
+                                error =
+                                    if (dtcErrors.isEmpty()) {
+                                        if (debugMode) {
+                                            "NO_DTCS:No DTC errors found. Make sure your simulator has DTCs set and try again."
+                                        } else {
+                                            "NO_DTCS:No DTC errors found"
+                                        }
+                                    } else null
+                            )
+                    },
+                    onFailure = { error ->
+                        Log.e(TAG, "Failed to load DTCs", error)
+                        _state.value =
+                            _state.value.copy(
+                                isLoading = false,
+                                error =
+                                    if (debugMode) {
+                                        "Failed to read DTCs: ${error.message}\nCheck logcat for more details."
+                                    } else {
+                                        "Failed to read DTCs: ${error.message}"
+                                    }
+                            )
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception loading DTCs", e)
+                _state.value =
+                    _state.value.copy(
+                        isLoading = false,
+                        error =
+                            if (debugMode) {
+                                "Error: ${e.message}\nCheck logcat for more details."
+                            } else {
+                                "Error: ${e.message}"
+                            }
+                    )
+            }
+        }
+    }
+
+    // Clear DTCs from the vehicle
     fun clearDTCErrors() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true)
+            Log.d(TAG, "Clearing DTC errors")
+            _state.value = _state.value.copy(isLoading = true, error = null)
 
-            // TODO: Implement DTC clearing logic
-            // This will involve sending the clear DTC command (04)
+            try {
+                // Request to clear DTCs
+                Log.d(TAG, "Calling repository.clearDTCs()")
+                val result = dtcRepository.clearDTCs()
 
-            // For now, just clear the list in the UI
-            _state.value = _state.value.copy(dtcErrors = emptyList(), isLoading = false)
+                result.fold(
+                    onSuccess = { success ->
+                        if (success) {
+                            // If successful, clear the list in the UI
+                            Log.d(TAG, "DTCs cleared successfully")
+                            _state.value =
+                                _state.value.copy(
+                                    dtcErrors = emptyList(),
+                                    isLoading = false,
+                                    error = "DTCs cleared successfully"
+                                )
+                        } else {
+                            Log.e(TAG, "Failed to clear DTCs")
+                            _state.value =
+                                _state.value.copy(
+                                    isLoading = false,
+                                    error = "Failed to clear DTCs"
+                                )
+                        }
+                    },
+                    onFailure = { error ->
+                        Log.e(TAG, "Error clearing DTCs", error)
+                        _state.value =
+                            _state.value.copy(
+                                isLoading = false,
+                                error =
+                                    if (debugMode) {
+                                        "Error clearing DTCs: ${error.message}\nCheck logcat for more details."
+                                    } else {
+                                        "Error clearing DTCs: ${error.message}"
+                                    }
+                            )
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception clearing DTCs", e)
+                _state.value =
+                    _state.value.copy(
+                        isLoading = false,
+                        error =
+                            if (debugMode) {
+                                "Error: ${e.message}\nCheck logcat for more details."
+                            } else {
+                                "Error: ${e.message}"
+                            }
+                    )
+            }
         }
     }
 }
