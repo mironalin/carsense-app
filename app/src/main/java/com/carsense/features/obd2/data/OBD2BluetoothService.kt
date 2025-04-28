@@ -254,7 +254,52 @@ class OBD2BluetoothService(
         }
 
         return try {
-            if (!isInitialized || obd2Service == null) {
+            // Check if the service is initialized
+            if (obd2Service == null) {
+                Log.w(TAG, "Attempted to send command before service creation")
+                return false
+            }
+
+            // Check if the OBD2 service is still connected
+            if (!obd2Service!!.isConnected()) {
+                Log.w(TAG, "OBD2 service disconnected, attempting to reconnect")
+
+                // Try to reconnect socket if needed
+                if (!socket.isConnected) {
+                    try {
+                        Log.d(TAG, "Reconnecting socket")
+                        socket.connect()
+                        delay(1000) // Give it time to stabilize
+                    } catch (e: IOException) {
+                        Log.e(TAG, "Failed to reconnect socket: ${e.message}")
+                        return false
+                    }
+                }
+
+                // Recreate streams and service
+                try {
+                    val inputStream = socket.inputStream
+                    val outputStream = socket.outputStream
+
+                    if (inputStream != null && outputStream != null) {
+                        obd2Service = OBD2Service(inputStream, outputStream)
+
+                        // Re-initialize the OBD2 connection
+                        if (!initialize()) {
+                            Log.e(TAG, "Failed to re-initialize OBD2 connection")
+                            return false
+                        }
+                    } else {
+                        Log.e(TAG, "Failed to get valid socket streams for reconnection")
+                        return false
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error recreating OBD2 service: ${e.message}")
+                    return false
+                }
+            }
+
+            if (!isInitialized) {
                 Log.w(TAG, "Attempted to send command before initialization")
                 return false
             }
@@ -297,5 +342,16 @@ class OBD2BluetoothService(
         } catch (e: IOException) {
             Log.e(TAG, "Error closing socket: ${e.message}")
         }
+    }
+
+    /**
+     * Gets the last raw response received from the OBD2 adapter
+     * @return The last raw response as a string, or an empty string if no response or service is
+     * null
+     */
+    fun getLastRawResponse(): String {
+        val response = obd2Service?.getLastRawResponse() ?: ""
+        Log.d(TAG, "Returning last raw response: '$response'")
+        return response
     }
 }

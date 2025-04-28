@@ -264,21 +264,66 @@ class AndroidBluetoothController(private val context: Context) : BluetoothContro
 
     /** @see BluetoothController.sendOBD2Command */
     override suspend fun sendOBD2Command(command: String): OBD2Message? {
-        if (command.isBlank()) {
+        val service = dataTransferService ?: return null
+        try {
+            // Send the command
+            if (!service.sendCommand(command)) {
+                Log.e(tag, "Failed to send command: $command")
+                return null
+            }
+
+            // DTC commands need more time to complete, especially for mode 03 (get DTCs)
+            val waitTime = if (command == "03") 1500L else 500L
+            delay(waitTime)
+
+            // Get the raw response directly after sending command
+            val lastResponse = service.getLastRawResponse()
+            Log.d(tag, "Raw response for $command: '$lastResponse'")
+
+            // If we see "SEARCHING..." in the response, we need to wait a bit longer
+            if (lastResponse.contains("SEARCHING") && command == "03") {
+                Log.d(tag, "Detected SEARCHING message, waiting for full response")
+                delay(1000) // Give it more time to complete
+                val completeResponse = service.getLastRawResponse()
+                Log.d(tag, "Updated response after waiting: '$completeResponse'")
+
+                // If we now have a proper DTC response, use it
+                if (completeResponse.startsWith("7E8") ||
+                    completeResponse.contains("43") ||
+                    completeResponse.contains("SEARCHING...7E8")
+                ) {
+                    return OBD2Message.createResponse("$command: $completeResponse", false)
+                }
+
+                // If we still have the SEARCHING message but now with data, use that
+                if (completeResponse != lastResponse) {
+                    return OBD2Message.createResponse("$command: $completeResponse", false)
+                }
+            }
+
+            // If we receive a special 7E8 format DTC response, return it immediately
+            if (lastResponse.startsWith("7E8") || lastResponse.contains("43")) {
+                Log.d(tag, "Found DTC data in response: $lastResponse")
+                return OBD2Message.createResponse("$command: $lastResponse", false)
+            }
+
+            // Otherwise create a generic response
+            if (lastResponse.isNotEmpty()) {
+                return OBD2Message.createResponse(
+                    response = "$command: $lastResponse",
+                    isError =
+                        lastResponse.contains("UNABLE TO CONNECT") ||
+                                lastResponse.contains("ERROR") ||
+                                lastResponse.contains("NO DATA")
+                )
+            }
+
+            // If we got no response, return null
+            Log.e(tag, "No response received for command: $command")
             return null
-        }
-
-        Log.d(tag, "Sending OBD2 command: $command")
-        val service = dataTransferService
-        val obd2Message = OBD2Message.createCommand(command)
-
-        return if (service != null && service.sendCommand(command)) {
-            _isConnected.value = true
-            obd2Message
-        } else {
-            Log.e(tag, "Failed to send command or service is null")
-            _errors.emit("Failed to send command: $command")
-            null
+        } catch (e: Exception) {
+            Log.e(tag, "Error sending command: $command", e)
+            return null
         }
     }
 
