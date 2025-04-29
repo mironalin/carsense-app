@@ -57,6 +57,7 @@ import com.composables.icons.lucide.Pause
 import com.composables.icons.lucide.Play
 import com.composables.icons.lucide.RefreshCw
 import com.composables.icons.lucide.Thermometer
+import com.composables.icons.lucide.Timer
 import com.composables.icons.lucide.Wind
 
 /** Screen that displays sensor readings in card format */
@@ -397,6 +398,28 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                                         item {
                                                 EngineLoadCard(
                                                         sensorReading = state.engineLoadReading
+                                                )
+                                        }
+
+                                        // Intake Manifold Pressure Card
+                                        item {
+                                                IntakeManifoldPressureCard(
+                                                        sensorReading =
+                                                                state.intakeManifoldPressureReading
+                                                )
+                                        }
+
+                                        // Timing Advance Card
+                                        item {
+                                                TimingAdvanceCard(
+                                                        sensorReading = state.timingAdvanceReading
+                                                )
+                                        }
+
+                                        // Mass Air Flow Card
+                                        item {
+                                                MassAirFlowCard(
+                                                        sensorReading = state.massAirFlowReading
                                                 )
                                         }
 
@@ -908,6 +931,210 @@ fun EngineLoadCard(sensorReading: SensorReading?) {
 
                                 Text(
                                         text = "Engine Load",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium
+                                )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (sensorReading == null) {
+                                Text(
+                                        text = "No data available",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color =
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                        alpha = 0.6f
+                                                )
+                                )
+                        } else if (sensorReading.isError) {
+                                Text(
+                                        text = sensorReading.value,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                )
+                        } else {
+                                Text(
+                                        text = sensorReading.value,
+                                        fontSize = 40.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                )
+
+                                Text(
+                                        text = sensorReading.unit,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                        }
+                }
+        }
+}
+
+/** Card that displays intake manifold pressure */
+@Composable
+fun IntakeManifoldPressureCard(sensorReading: SensorReading?) {
+        Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors =
+                        CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.Start) {
+                        Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                        ) {
+                                Icon(
+                                        imageVector = Lucide.Gauge,
+                                        contentDescription = "Intake Manifold Pressure",
+                                        modifier = Modifier.size(32.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                )
+
+                                Spacer(modifier = Modifier.size(12.dp))
+
+                                Text(
+                                        text = "Intake Manifold Pressure",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium
+                                )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (sensorReading == null) {
+                                Text(
+                                        text = "No data available",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color =
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                        alpha = 0.6f
+                                                )
+                                )
+                        } else if (sensorReading.isError) {
+                                Text(
+                                        text = sensorReading.value,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                )
+                        } else {
+                                Text(
+                                        text = sensorReading.value,
+                                        fontSize = 40.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                )
+
+                                Text(
+                                        text = sensorReading.unit,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                        }
+                }
+        }
+}
+
+/** Card that displays ignition timing advance */
+@Composable
+fun TimingAdvanceCard(sensorReading: SensorReading?) {
+        Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors =
+                        CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.Start) {
+                        Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                        ) {
+                                Icon(
+                                        imageVector = Lucide.Timer,
+                                        contentDescription = "Timing Advance",
+                                        modifier = Modifier.size(32.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                )
+
+                                Spacer(modifier = Modifier.size(12.dp))
+
+                                Text(
+                                        text = "Ignition Timing Advance",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium
+                                )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (sensorReading == null) {
+                                Text(
+                                        text = "No data available",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color =
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                        alpha = 0.6f
+                                                )
+                                )
+                        } else if (sensorReading.isError) {
+                                Text(
+                                        text = sensorReading.value,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                )
+                        } else {
+                                Text(
+                                        text = sensorReading.value,
+                                        fontSize = 40.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                )
+
+                                Text(
+                                        text = sensorReading.unit,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                        }
+                }
+        }
+}
+
+/** Card that displays mass air flow rate */
+@Composable
+fun MassAirFlowCard(sensorReading: SensorReading?) {
+        Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors =
+                        CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.Start) {
+                        Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                        ) {
+                                Icon(
+                                        imageVector = Lucide.Wind,
+                                        contentDescription = "Mass Air Flow",
+                                        modifier = Modifier.size(32.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                )
+
+                                Spacer(modifier = Modifier.size(12.dp))
+
+                                Text(
+                                        text = "Mass Air Flow Rate",
                                         fontWeight = FontWeight.Bold,
                                         style = MaterialTheme.typography.titleMedium
                                 )
