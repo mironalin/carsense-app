@@ -1,5 +1,6 @@
 package com.carsense.features.sensors.domain.repository
 
+import com.carsense.features.sensors.domain.model.SensorCategory
 import com.carsense.features.sensors.domain.model.SensorReading
 import kotlinx.coroutines.flow.Flow
 
@@ -27,16 +28,49 @@ interface SensorRepository {
     suspend fun requestReading(sensorId: String): Result<SensorReading>
 
     /**
-     * Gets the list of available sensors
+     * Gets the list of all available sensors
      * @return List of available sensor IDs
      */
     suspend fun getAvailableSensors(): List<String>
+
+    /**
+     * Gets the list of sensors supported by the vehicle
+     * @return List of supported sensor IDs
+     */
+    suspend fun getSupportedSensors(): List<String>
+
+    /**
+     * Gets the list of available sensor categories
+     * @return List of sensor categories
+     */
+    suspend fun getSensorCategories(): List<SensorCategory>
+
+    /**
+     * Gets the sensors in a specific category
+     * @param categoryId The category identifier
+     * @return List of sensor IDs in the category
+     */
+    suspend fun getSensorsInCategory(categoryId: String): List<String>
+
+    /**
+     * Detects which sensors are supported by the vehicle
+     * @param forceRefresh Whether to force a refresh even if detection has already been run
+     * @return True if detection was successful, false otherwise
+     */
+    suspend fun detectSupportedSensors(forceRefresh: Boolean = false): Boolean
 
     /**
      * Starts monitoring all sensors
      * @param updateIntervalMs The interval between sensor updates in milliseconds
      */
     suspend fun startMonitoring(updateIntervalMs: Long = 1000)
+
+    /**
+     * Starts monitoring specific sensors
+     * @param sensorIds List of sensor IDs to monitor
+     * @param updateIntervalMs The interval between sensor updates in milliseconds
+     */
+    suspend fun startMonitoringSensors(sensorIds: List<String>, updateIntervalMs: Long = 1000)
 
     /** Stops monitoring sensors */
     suspend fun stopMonitoring()
