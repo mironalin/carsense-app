@@ -23,6 +23,8 @@ object SensorConstants {
         const val THROTTLE_POSITION = CoreOBD2Constants.PID.THROTTLE_POSITION
         const val FUEL_LEVEL = CoreOBD2Constants.PID.FUEL_LEVEL
         const val FUEL_PRESSURE = CoreOBD2Constants.PID.FUEL_PRESSURE
+        const val INTAKE_MANIFOLD_PRESSURE = CoreOBD2Constants.PID.INTAKE_MANIFOLD_PRESSURE
+        const val TIMING_ADVANCE = CoreOBD2Constants.PID.TIMING_ADVANCE
     }
 
     // Parameter ranges
@@ -31,5 +33,7 @@ object SensorConstants {
         val SPEED = CoreOBD2Constants.Range.SPEED_KMH
         val TEMPERATURE = CoreOBD2Constants.Range.TEMPERATURE_C
         val PERCENT = CoreOBD2Constants.Range.PERCENT
+        val PRESSURE_KPA = CoreOBD2Constants.Range.PRESSURE_KPA
+        val TIMING_DEGREES = -64f..64f // Timing advance in degrees
     }
 }
