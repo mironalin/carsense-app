@@ -21,6 +21,8 @@ data class SensorState(
         val coolantTempReading: SensorReading? = null,
         val intakeAirTempReading: SensorReading? = null,
         val throttlePositionReading: SensorReading? = null,
+        val fuelLevelReading: SensorReading? = null,
+        val engineLoadReading: SensorReading? = null,
         val isMonitoring: Boolean = false,
         val refreshRateMs: Long = 1000 // Default refresh rate of 1 second
 )
@@ -40,6 +42,8 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
         const val PID_COOLANT_TEMP = "05"
         const val PID_INTAKE_AIR_TEMP = "0F"
         const val PID_THROTTLE_POSITION = "11"
+        const val PID_FUEL_LEVEL = "2F"
+        const val PID_ENGINE_LOAD = "04"
     }
 
     /** Starts monitoring sensor readings with configurable refresh rate */
@@ -64,7 +68,9 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                                 PID_SPEED,
                                 PID_COOLANT_TEMP,
                                 PID_INTAKE_AIR_TEMP,
-                                PID_THROTTLE_POSITION
+                                PID_THROTTLE_POSITION,
+                                PID_FUEL_LEVEL,
+                                PID_ENGINE_LOAD
                         ),
                         refreshRateMs
                 )
@@ -118,6 +124,24 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                                 "Throttle Position Reading received: ${reading.value} ${reading.unit}"
                         )
                         _state.update { it.copy(throttlePositionReading = reading) }
+                    }
+                }
+
+                // Collect the fuel level readings
+                val fuelLevelFlow = sensorRepository.getSensorReadings(PID_FUEL_LEVEL)
+                viewModelScope.launch {
+                    fuelLevelFlow.collect { reading ->
+                        println("Fuel Level Reading received: ${reading.value} ${reading.unit}")
+                        _state.update { it.copy(fuelLevelReading = reading) }
+                    }
+                }
+
+                // Collect the engine load readings
+                val engineLoadFlow = sensorRepository.getSensorReadings(PID_ENGINE_LOAD)
+                viewModelScope.launch {
+                    engineLoadFlow.collect { reading ->
+                        println("Engine Load Reading received: ${reading.value} ${reading.unit}")
+                        _state.update { it.copy(engineLoadReading = reading) }
                     }
                 }
             } catch (e: Exception) {
