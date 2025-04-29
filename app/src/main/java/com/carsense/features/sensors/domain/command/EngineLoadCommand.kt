@@ -32,11 +32,46 @@ class EngineLoadCommand : SensorCommand() {
             throw IllegalArgumentException("No data bytes found in response: $cleanedResponse")
         }
 
-        // Load percentage is expressed as A * 100 / 255
-        val loadRaw = dataBytes[0].hexToInt()
-        val loadPercent = loadRaw * 100 / 255.0
+        // Check if we have a response that includes the mode and PID bytes (41 04)
+        if (dataBytes.size >= 4 && dataBytes[0] == "41" && dataBytes[1] == "04") {
+            // We have a response with mode and PID included, use the actual data bytes
+            val loadRaw = dataBytes[2].hexToInt()
+            val loadPercent = loadRaw * 100 / 255.0
+            Log.d(TAG, "Using data bytes after mode+PID, Raw: $loadRaw, Percent: $loadPercent")
+            return loadPercent.toInt().toString()
+        }
 
-        Log.d(TAG, "Engine load value: $loadPercent%")
-        return loadPercent.toInt().toString()
+        // Different adapters might return different formats
+        // Try to interpret based on the data we have
+        return when {
+            cleanedResponse.contains("7E804404") -> {
+                // Special handling for ELM327 responses
+                val dataStart = cleanedResponse.indexOf("7E804404") + 8
+                if (dataStart + 2 <= cleanedResponse.length) {
+                    val loadRaw =
+                            cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
+                    val loadPercent = loadRaw * 100 / 255.0
+                    Log.d(TAG, "ELM327 format - Raw: $loadRaw, Percent: $loadPercent")
+                    loadPercent.toInt().toString()
+                } else {
+                    "0"
+                }
+            }
+            dataBytes.size == 1 -> {
+                // Standard single byte format: A * 100 / 255 (%)
+                val loadRaw = dataBytes[0].hexToInt()
+                val loadPercent = loadRaw * 100 / 255.0
+                Log.d(TAG, "Standard format, Raw: $loadRaw, Percent: $loadPercent")
+                loadPercent.toInt().toString()
+            }
+            else -> {
+                // For responses with more bytes, look for the actual engine load data
+                // Try to use the last byte
+                val loadRaw = dataBytes.last().hexToInt()
+                val loadPercent = loadRaw * 100 / 255.0
+                Log.d(TAG, "Using last byte, Raw: $loadRaw, Percent: $loadPercent")
+                loadPercent.toInt().toString()
+            }
+        }
     }
 }
