@@ -5,29 +5,38 @@ import androidx.lifecycle.viewModelScope
 import com.carsense.features.sensors.domain.model.SensorReading
 import com.carsense.features.sensors.domain.repository.SensorRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /** State container for the Sensors screen */
 data class SensorState(
-        val isLoading: Boolean = false,
-        val error: String? = null,
-        val rpmReading: SensorReading? = null,
-        val isMonitoring: Boolean = false,
-        val refreshRateMs: Long = 1000 // Default refresh rate of 1 second
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val rpmReading: SensorReading? = null,
+    val speedReading: SensorReading? = null,
+    val coolantTempReading: SensorReading? = null,
+    val isMonitoring: Boolean = false,
+    val refreshRateMs: Long = 1000 // Default refresh rate of 1 second
 )
 
 /** ViewModel for the Sensors screen that manages sensor reading states */
 @HiltViewModel
 class SensorViewModel @Inject constructor(private val sensorRepository: SensorRepository) :
-        ViewModel() {
+    ViewModel() {
 
     private val _state = MutableStateFlow(SensorState())
     val state: StateFlow<SensorState> = _state.asStateFlow()
+
+    // Constants for sensor PIDs
+    companion object {
+        const val PID_RPM = "0C"
+        const val PID_SPEED = "0D"
+        const val PID_COOLANT_TEMP = "05"
+    }
 
     /** Starts monitoring sensor readings with configurable refresh rate */
     fun startReadings(refreshRateMs: Long = _state.value.refreshRateMs) {
@@ -36,19 +45,22 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
         viewModelScope.launch {
             _state.update {
                 it.copy(
-                        isLoading = true,
-                        error = null,
-                        isMonitoring = true,
-                        refreshRateMs = refreshRateMs
+                    isLoading = true,
+                    error = null,
+                    isMonitoring = true,
+                    refreshRateMs = refreshRateMs
                 )
             }
 
             try {
-                // Start monitoring the RPM sensor (PID 0C) with the specified refresh rate
-                sensorRepository.startMonitoringSensors(listOf("0C"), refreshRateMs)
+                // Start monitoring the sensors with the specified refresh rate
+                sensorRepository.startMonitoringSensors(
+                    listOf(PID_RPM, PID_SPEED, PID_COOLANT_TEMP),
+                    refreshRateMs
+                )
 
-                // Collect the RPM reading
-                val rpmFlow = sensorRepository.getSensorReadings("0C")
+                // Collect the RPM readings
+                val rpmFlow = sensorRepository.getSensorReadings(PID_RPM)
                 viewModelScope.launch {
                     rpmFlow.collect { reading ->
                         // Log the raw value for debugging
@@ -56,12 +68,32 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                         _state.update { it.copy(rpmReading = reading, isLoading = false) }
                     }
                 }
+
+                // Collect the speed readings
+                val speedFlow = sensorRepository.getSensorReadings(PID_SPEED)
+                viewModelScope.launch {
+                    speedFlow.collect { reading ->
+                        println("Speed Reading received: ${reading.value} ${reading.unit}")
+                        _state.update { it.copy(speedReading = reading) }
+                    }
+                }
+
+                // Collect the coolant temperature readings
+                val coolantTempFlow = sensorRepository.getSensorReadings(PID_COOLANT_TEMP)
+                viewModelScope.launch {
+                    coolantTempFlow.collect { reading ->
+                        println(
+                            "Coolant Temperature Reading received: ${reading.value} ${reading.unit}"
+                        )
+                        _state.update { it.copy(coolantTempReading = reading) }
+                    }
+                }
             } catch (e: Exception) {
                 _state.update {
                     it.copy(
-                            isLoading = false,
-                            error = "Failed to start sensor readings: ${e.message}",
-                            isMonitoring = false
+                        isLoading = false,
+                        error = "Failed to start sensor readings: ${e.message}",
+                        isMonitoring = false
                     )
                 }
             }
