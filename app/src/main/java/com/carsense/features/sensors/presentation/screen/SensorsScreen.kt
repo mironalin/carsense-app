@@ -47,8 +47,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.carsense.features.sensors.domain.model.SensorReading
 import com.carsense.features.sensors.presentation.viewmodel.SensorViewModel
+import com.composables.icons.lucide.Activity
 import com.composables.icons.lucide.ArrowLeft
 import com.composables.icons.lucide.Clock
+import com.composables.icons.lucide.Droplet
 import com.composables.icons.lucide.Gauge
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Pause
@@ -381,6 +383,20 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                                                 ThrottlePositionCard(
                                                         sensorReading =
                                                                 state.throttlePositionReading
+                                                )
+                                        }
+
+                                        // Fuel Level Card
+                                        item {
+                                                FuelLevelCard(
+                                                        sensorReading = state.fuelLevelReading
+                                                )
+                                        }
+
+                                        // Engine Load Card
+                                        item {
+                                                EngineLoadCard(
+                                                        sensorReading = state.engineLoadReading
                                                 )
                                         }
 
@@ -756,6 +772,142 @@ fun ThrottlePositionCard(sensorReading: SensorReading?) {
 
                                 Text(
                                         text = "Throttle Position",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium
+                                )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (sensorReading == null) {
+                                Text(
+                                        text = "No data available",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color =
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                        alpha = 0.6f
+                                                )
+                                )
+                        } else if (sensorReading.isError) {
+                                Text(
+                                        text = sensorReading.value,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                )
+                        } else {
+                                Text(
+                                        text = sensorReading.value,
+                                        fontSize = 40.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                )
+
+                                Text(
+                                        text = sensorReading.unit,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                        }
+                }
+        }
+}
+
+/** Card that displays fuel level percentage */
+@Composable
+fun FuelLevelCard(sensorReading: SensorReading?) {
+        Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors =
+                        CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.Start) {
+                        Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                        ) {
+                                Icon(
+                                        imageVector = Lucide.Droplet,
+                                        contentDescription = "Fuel Level",
+                                        modifier = Modifier.size(32.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                )
+
+                                Spacer(modifier = Modifier.size(12.dp))
+
+                                Text(
+                                        text = "Fuel Level",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium
+                                )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (sensorReading == null) {
+                                Text(
+                                        text = "No data available",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color =
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                        alpha = 0.6f
+                                                )
+                                )
+                        } else if (sensorReading.isError) {
+                                Text(
+                                        text = sensorReading.value,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                )
+                        } else {
+                                Text(
+                                        text = sensorReading.value,
+                                        fontSize = 40.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                )
+
+                                Text(
+                                        text = sensorReading.unit,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                        }
+                }
+        }
+}
+
+/** Card that displays engine load percentage */
+@Composable
+fun EngineLoadCard(sensorReading: SensorReading?) {
+        Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors =
+                        CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.Start) {
+                        Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                        ) {
+                                Icon(
+                                        imageVector = Lucide.Activity,
+                                        contentDescription = "Engine Load",
+                                        modifier = Modifier.size(32.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                )
+
+                                Spacer(modifier = Modifier.size(12.dp))
+
+                                Text(
+                                        text = "Engine Load",
                                         fontWeight = FontWeight.Bold,
                                         style = MaterialTheme.typography.titleMedium
                                 )
