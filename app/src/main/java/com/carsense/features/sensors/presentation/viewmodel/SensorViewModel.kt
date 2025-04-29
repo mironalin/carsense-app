@@ -23,6 +23,9 @@ data class SensorState(
         val throttlePositionReading: SensorReading? = null,
         val fuelLevelReading: SensorReading? = null,
         val engineLoadReading: SensorReading? = null,
+        val intakeManifoldPressureReading: SensorReading? = null,
+        val timingAdvanceReading: SensorReading? = null,
+        val massAirFlowReading: SensorReading? = null,
         val isMonitoring: Boolean = false,
         val refreshRateMs: Long = 1000 // Default refresh rate of 1 second
 )
@@ -44,6 +47,9 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
         const val PID_THROTTLE_POSITION = "11"
         const val PID_FUEL_LEVEL = "2F"
         const val PID_ENGINE_LOAD = "04"
+        const val PID_INTAKE_MANIFOLD_PRESSURE = "0B"
+        const val PID_TIMING_ADVANCE = "0E"
+        const val PID_MAF_RATE = "10"
     }
 
     /** Starts monitoring sensor readings with configurable refresh rate */
@@ -70,7 +76,10 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                                 PID_INTAKE_AIR_TEMP,
                                 PID_THROTTLE_POSITION,
                                 PID_FUEL_LEVEL,
-                                PID_ENGINE_LOAD
+                                PID_ENGINE_LOAD,
+                                PID_INTAKE_MANIFOLD_PRESSURE,
+                                PID_TIMING_ADVANCE,
+                                PID_MAF_RATE
                         ),
                         refreshRateMs
                 )
@@ -142,6 +151,36 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                     engineLoadFlow.collect { reading ->
                         println("Engine Load Reading received: ${reading.value} ${reading.unit}")
                         _state.update { it.copy(engineLoadReading = reading) }
+                    }
+                }
+
+                // Collect the intake manifold pressure readings
+                val intakeManifoldPressureFlow =
+                        sensorRepository.getSensorReadings(PID_INTAKE_MANIFOLD_PRESSURE)
+                viewModelScope.launch {
+                    intakeManifoldPressureFlow.collect { reading ->
+                        println(
+                                "Intake Manifold Pressure Reading received: ${reading.value} ${reading.unit}"
+                        )
+                        _state.update { it.copy(intakeManifoldPressureReading = reading) }
+                    }
+                }
+
+                // Collect the timing advance readings
+                val timingAdvanceFlow = sensorRepository.getSensorReadings(PID_TIMING_ADVANCE)
+                viewModelScope.launch {
+                    timingAdvanceFlow.collect { reading ->
+                        println("Timing Advance Reading received: ${reading.value} ${reading.unit}")
+                        _state.update { it.copy(timingAdvanceReading = reading) }
+                    }
+                }
+
+                // Collect the mass air flow readings
+                val massAirFlowFlow = sensorRepository.getSensorReadings(PID_MAF_RATE)
+                viewModelScope.launch {
+                    massAirFlowFlow.collect { reading ->
+                        println("Mass Air Flow Reading received: ${reading.value} ${reading.unit}")
+                        _state.update { it.copy(massAirFlowReading = reading) }
                     }
                 }
             } catch (e: Exception) {
