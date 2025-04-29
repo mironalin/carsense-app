@@ -17,7 +17,8 @@ data class SensorState(
         val isLoading: Boolean = false,
         val error: String? = null,
         val rpmReading: SensorReading? = null,
-        val isMonitoring: Boolean = false
+        val isMonitoring: Boolean = false,
+        val refreshRateMs: Long = 1000 // Default refresh rate of 1 second
 )
 
 /** ViewModel for the Sensors screen that manages sensor reading states */
@@ -28,16 +29,23 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
     private val _state = MutableStateFlow(SensorState())
     val state: StateFlow<SensorState> = _state.asStateFlow()
 
-    /** Starts monitoring sensor readings */
-    fun startReadings() {
+    /** Starts monitoring sensor readings with configurable refresh rate */
+    fun startReadings(refreshRateMs: Long = _state.value.refreshRateMs) {
         if (_state.value.isMonitoring) return
 
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null, isMonitoring = true) }
+            _state.update {
+                it.copy(
+                        isLoading = true,
+                        error = null,
+                        isMonitoring = true,
+                        refreshRateMs = refreshRateMs
+                )
+            }
 
             try {
-                // Start monitoring the RPM sensor (PID 0C)
-                sensorRepository.startMonitoringSensors(listOf("0C"))
+                // Start monitoring the RPM sensor (PID 0C) with the specified refresh rate
+                sensorRepository.startMonitoringSensors(listOf("0C"), refreshRateMs)
 
                 // Collect the RPM reading
                 val rpmFlow = sensorRepository.getSensorReadings("0C")
@@ -57,6 +65,22 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                     )
                 }
             }
+        }
+    }
+
+    /** Sets a new refresh rate and restarts monitoring if active */
+    fun setRefreshRate(refreshRateMs: Long) {
+        if (refreshRateMs == _state.value.refreshRateMs) return
+
+        val wasMonitoring = _state.value.isMonitoring
+        if (wasMonitoring) {
+            stopReadings()
+        }
+
+        _state.update { it.copy(refreshRateMs = refreshRateMs) }
+
+        if (wasMonitoring) {
+            startReadings(refreshRateMs)
         }
     }
 

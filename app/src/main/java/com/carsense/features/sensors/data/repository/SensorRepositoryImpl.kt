@@ -280,7 +280,21 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                 CoroutineScope(Dispatchers.IO).launch {
                     Log.d(TAG, "Starting monitoring for specific sensors: $sensorIds")
 
+                    // Calculate optimal delay between sensor readings based on update interval
+                    // Ensure we leave at least 20% of update interval for processing overhead
+                    val safeIntervalMs = updateIntervalMs * 0.8
+                    val betweenSensorDelayMs =
+                            if (sensorIds.isEmpty()) 0L
+                            else (safeIntervalMs / sensorIds.size).toLong().coerceAtLeast(50)
+
+                    Log.d(
+                            TAG,
+                            "Update interval: ${updateIntervalMs}ms, between sensors delay: ${betweenSensorDelayMs}ms"
+                    )
+
                     while (isActive && isMonitoring) {
+                        val cycleStartTime = System.currentTimeMillis()
+
                         if (!bluetoothController.isConnected.value) {
                             Log.d(TAG, "Not connected, skipping sensor updates")
                             delay(1000) // Wait before checking connection again
@@ -292,16 +306,31 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                             try {
                                 if (allSensorCommands.containsKey(sensorId)) {
                                     requestReading(sensorId)
-                                    // Small delay between commands to not overwhelm the OBD adapter
-                                    delay(100)
+                                    // Dynamic delay between commands to optimize polling
+                                    if (sensorIds.size > 1) {
+                                        delay(betweenSensorDelayMs)
+                                    }
                                 }
                             } catch (e: Exception) {
                                 Log.e(TAG, "Error monitoring sensor $sensorId", e)
                             }
                         }
 
-                        // Wait for the next update interval
-                        delay(updateIntervalMs)
+                        // Calculate remaining time in this update cycle
+                        val cycleEndTime = System.currentTimeMillis()
+                        val cycleDuration = cycleEndTime - cycleStartTime
+                        val remainingTime = updateIntervalMs - cycleDuration
+
+                        // Wait for the remaining time until next update cycle, with minimum 50ms
+                        if (remainingTime > 50) {
+                            delay(remainingTime)
+                        } else {
+                            Log.w(
+                                    TAG,
+                                    "Sensor polling cycle took longer than update interval (${cycleDuration}ms > ${updateIntervalMs}ms)"
+                            )
+                            delay(50) // Minimum delay to prevent CPU overload
+                        }
                     }
 
                     Log.d(TAG, "Sensor monitoring stopped")
@@ -321,38 +350,11 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
             detectSupportedPIDs()
         }
 
-        // Start the monitoring coroutine
-        monitoringJob =
-                CoroutineScope(Dispatchers.IO).launch {
-                    Log.d(TAG, "Starting sensor monitoring")
+        // Get the list of sensors to monitor (excluding PID support command)
+        val sensorsToMonitor = supportedSensorCommands.keys.filter { it != "00" }
 
-                    while (isActive && isMonitoring) {
-                        if (!bluetoothController.isConnected.value) {
-                            Log.d(TAG, "Not connected, skipping sensor updates")
-                            delay(1000) // Wait before checking connection again
-                            continue
-                        }
-
-                        // Request readings for supported sensors
-                        for (sensorId in supportedSensorCommands.keys) {
-                            // Skip the supported PIDs command in monitoring
-                            if (sensorId == "00") continue
-
-                            try {
-                                requestReading(sensorId)
-                                // Small delay between commands to not overwhelm the OBD adapter
-                                delay(100)
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Error monitoring sensor $sensorId", e)
-                            }
-                        }
-
-                        // Wait for the next update interval
-                        delay(updateIntervalMs)
-                    }
-
-                    Log.d(TAG, "Sensor monitoring stopped")
-                }
+        // Start monitoring using the optimized method
+        startMonitoringSensors(sensorsToMonitor, updateIntervalMs)
     }
 
     override suspend fun stopMonitoring() {
