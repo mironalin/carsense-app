@@ -49,7 +49,7 @@ class EngineLoadCommand : SensorCommand() {
                 val dataStart = cleanedResponse.indexOf("7E804404") + 8
                 if (dataStart + 2 <= cleanedResponse.length) {
                     val loadRaw =
-                            cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
+                        cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
                     val loadPercent = loadRaw * 100 / 255.0
                     Log.d(TAG, "ELM327 format - Raw: $loadRaw, Percent: $loadPercent")
                     loadPercent.toInt().toString()
@@ -57,6 +57,7 @@ class EngineLoadCommand : SensorCommand() {
                     "0"
                 }
             }
+
             dataBytes.size == 1 -> {
                 // Standard single byte format: A * 100 / 255 (%)
                 val loadRaw = dataBytes[0].hexToInt()
@@ -64,6 +65,7 @@ class EngineLoadCommand : SensorCommand() {
                 Log.d(TAG, "Standard format, Raw: $loadRaw, Percent: $loadPercent")
                 loadPercent.toInt().toString()
             }
+
             else -> {
                 // For responses with more bytes, look for the actual engine load data
                 // Try to use the last byte

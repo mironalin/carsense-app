@@ -35,7 +35,7 @@ class FuelLevelCommand : SensorCommand() {
             val fuelRaw = dataBytes[2].hexToInt()
             val fuelPercent = fuelRaw * 100 / 255.0
             println(
-                    "FuelLevelCommand: Using data bytes after mode+PID, Raw: $fuelRaw, Percent: $fuelPercent"
+                "FuelLevelCommand: Using data bytes after mode+PID, Raw: $fuelRaw, Percent: $fuelPercent"
             )
             return fuelPercent.toInt().toString()
         }
@@ -48,16 +48,17 @@ class FuelLevelCommand : SensorCommand() {
                 val dataStart = cleanedResponse.indexOf("7E80442F") + 8
                 if (dataStart + 2 <= cleanedResponse.length) {
                     val fuelRaw =
-                            cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
+                        cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
                     val fuelPercent = fuelRaw * 100 / 255.0
                     println(
-                            "FuelLevelCommand: ELM327 format - Raw: $fuelRaw, Percent: $fuelPercent"
+                        "FuelLevelCommand: ELM327 format - Raw: $fuelRaw, Percent: $fuelPercent"
                     )
                     fuelPercent.toInt().toString()
                 } else {
                     "0"
                 }
             }
+
             dataBytes.size == 1 -> {
                 // Standard single byte format: A * 100 / 255 (%)
                 val fuelRaw = dataBytes[0].hexToInt()
@@ -65,6 +66,7 @@ class FuelLevelCommand : SensorCommand() {
                 println("FuelLevelCommand: Standard format, Raw: $fuelRaw, Percent: $fuelPercent")
                 fuelPercent.toInt().toString()
             }
+
             else -> {
                 // For responses with more bytes, look for the actual fuel level data
                 // Try to use the last byte

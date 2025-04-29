@@ -1,28 +1,31 @@
 # Dashboard Feature
 
-This feature serves as the main navigation hub after connecting to a vehicle, providing access to various diagnostic features.
+This feature serves as the main navigation hub after connecting to a vehicle, providing access to
+various diagnostic features.
 
 ## Structure
 
 ### Domain Layer
+
 - **model**: Domain models
-  - `VehicleInfo.kt`: Domain representation of vehicle information
+    - `VehicleInfo.kt`: Domain representation of vehicle information
 - **usecase**: Use cases related to dashboard functionality
-  - `GetVehicleInfoUseCase.kt`: Retrieves vehicle information
+    - `GetVehicleInfoUseCase.kt`: Retrieves vehicle information
 
 ### Presentation Layer
+
 - **intent**: User actions
-  - `DashboardIntent.kt`: Defines all user actions for the dashboard
+    - `DashboardIntent.kt`: Defines all user actions for the dashboard
 - **model**: UI state
-  - `DashboardState.kt`: UI state for the dashboard
+    - `DashboardState.kt`: UI state for the dashboard
 - **screen**: UI components
-  - `DashboardScreen.kt`: Main dashboard screen with navigation buttons
-  - **components**: Dashboard-specific UI components
-    - `DashboardButton.kt`: Styled button for feature navigation
-    - `ConnectionStatus.kt`: Component to show connection status
-    - `VehicleInfoCard.kt`: Card displaying vehicle information
+    - `DashboardScreen.kt`: Main dashboard screen with navigation buttons
+    - **components**: Dashboard-specific UI components
+        - `DashboardButton.kt`: Styled button for feature navigation
+        - `ConnectionStatus.kt`: Component to show connection status
+        - `VehicleInfoCard.kt`: Card displaying vehicle information
 - **viewmodel**: Presentation logic
-  - `DashboardViewModel.kt`: Handles dashboard state and navigation
+    - `DashboardViewModel.kt`: Handles dashboard state and navigation
 
 ## Navigation Options
 
@@ -59,6 +62,7 @@ fun DashboardScreen(
 ## Responsibilities
 
 The Dashboard feature is responsible for:
+
 1. Displaying high-level vehicle information
 2. Providing navigation to specialized diagnostic screens
 3. Showing connection status

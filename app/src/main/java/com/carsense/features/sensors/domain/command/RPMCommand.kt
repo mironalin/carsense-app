@@ -53,6 +53,7 @@ class RPMCommand : SensorCommand() {
                 println("RPMCommand: Single byte format, value: $value")
                 value.toString()
             }
+
             2 -> {
                 // Standard 2-byte format: (A * 256 + B) / 4
                 val a = dataBytes[0].hexToInt()
@@ -61,6 +62,7 @@ class RPMCommand : SensorCommand() {
                 println("RPMCommand: Standard 2-byte format, A: $a, B: $b, RPM: $rpm")
                 rpm.toInt().toString()
             }
+
             else -> {
                 // For responses with more bytes, look for the actual RPM data
                 // Try to find the correct position, often the last 2 bytes contain the data
@@ -83,12 +85,12 @@ class RPMCommand : SensorCommand() {
             if (dataStart + 4 <= response.length) {
                 val dataByte1 = response.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
                 val dataByte2 =
-                        response.substring(dataStart + 2, dataStart + 4).toIntOrNull(16) ?: 0
+                    response.substring(dataStart + 2, dataStart + 4).toIntOrNull(16) ?: 0
 
                 // Apply RPM formula: (A * 256 + B) / 4
                 val rpm = (dataByte1 * 256 + dataByte2) / 4
                 println(
-                        "RPMCommand: ELM327 format - extracted A: $dataByte1, B: $dataByte2, RPM: $rpm"
+                    "RPMCommand: ELM327 format - extracted A: $dataByte1, B: $dataByte2, RPM: $rpm"
                 )
                 return rpm.toString()
             }

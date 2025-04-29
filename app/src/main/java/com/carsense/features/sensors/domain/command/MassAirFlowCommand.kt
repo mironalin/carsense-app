@@ -34,7 +34,11 @@ class MassAirFlowCommand : SensorCommand() {
                 val b = matchResult.groupValues[2].toIntOrNull(16) ?: 0
                 val mafRate = (a * 256 + b) / 100.0
                 println(
-                        "MassAirFlowCommand: Regex matched pattern - A: $a (0x${a.toString(16)}), B: $b (0x${b.toString(16)}), MAF: $mafRate g/s"
+                    "MassAirFlowCommand: Regex matched pattern - A: $a (0x${a.toString(16)}), B: $b (0x${
+                        b.toString(
+                            16
+                        )
+                    }), MAF: $mafRate g/s"
                 )
                 return String.format("%.2f", mafRate)
             }
@@ -59,7 +63,11 @@ class MassAirFlowCommand : SensorCommand() {
                     val b = hexPairs[index + 2].toIntOrNull(16) ?: 0
                     val mafRate = (a * 256 + b) / 100.0
                     println(
-                            "MassAirFlowCommand: Raw extraction - A: $a (0x${a.toString(16)}), B: $b (0x${b.toString(16)}), MAF: $mafRate g/s"
+                        "MassAirFlowCommand: Raw extraction - A: $a (0x${a.toString(16)}), B: $b (0x${
+                            b.toString(
+                                16
+                            )
+                        }), MAF: $mafRate g/s"
                     )
                     return String.format("%.2f", mafRate)
                 }
@@ -78,7 +86,11 @@ class MassAirFlowCommand : SensorCommand() {
                 val b = dataBytes[3].hexToInt()
                 val mafRate = (a * 256 + b) / 100.0
                 println(
-                        "MassAirFlowCommand: Mode+PID format - A: $a (0x${a.toString(16)}), B: $b (0x${b.toString(16)}), MAF: $mafRate g/s"
+                    "MassAirFlowCommand: Mode+PID format - A: $a (0x${a.toString(16)}), B: $b (0x${
+                        b.toString(
+                            16
+                        )
+                    }), MAF: $mafRate g/s"
                 )
                 String.format("%.2f", mafRate)
             }
@@ -107,7 +119,11 @@ class MassAirFlowCommand : SensorCommand() {
 
                 val mafRate = (a * 256 + b) / 100.0
                 println(
-                        "MassAirFlowCommand: Two byte format - A: $a (0x${a.toString(16)}), B: $b (0x${b.toString(16)}), MAF: $mafRate g/s"
+                    "MassAirFlowCommand: Two byte format - A: $a (0x${a.toString(16)}), B: $b (0x${
+                        b.toString(
+                            16
+                        )
+                    }), MAF: $mafRate g/s"
                 )
                 String.format("%.2f", mafRate)
             }
@@ -124,7 +140,7 @@ class MassAirFlowCommand : SensorCommand() {
                 // This is a heuristic based on the simulator's max value of ~655
                 val scaledValue = value * 2.55
                 println(
-                        "MassAirFlowCommand: Single byte format - value: $value, scaled: $scaledValue"
+                    "MassAirFlowCommand: Single byte format - value: $value, scaled: $scaledValue"
                 )
 
                 String.format("%.2f", scaledValue)
@@ -142,7 +158,7 @@ class MassAirFlowCommand : SensorCommand() {
                         val scale = if (intValue > 6553) 0.01 else if (intValue > 655) 0.1 else 1.0
                         val scaledValue = intValue * scale
                         println(
-                                "MassAirFlowCommand: Combined value: $intValue, scaled: $scaledValue"
+                            "MassAirFlowCommand: Combined value: $intValue, scaled: $scaledValue"
                         )
                         return String.format("%.2f", scaledValue)
                     }

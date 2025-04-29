@@ -34,7 +34,7 @@ class IntakeManifoldPressureCommand : SensorCommand() {
             // We have a response with mode and PID included, use the actual data bytes
             val pressure = dataBytes[2].hexToInt()
             println(
-                    "IntakeManifoldPressureCommand: Using data bytes after mode+PID, pressure: $pressure kPa"
+                "IntakeManifoldPressureCommand: Using data bytes after mode+PID, pressure: $pressure kPa"
             )
             return pressure.toString()
         }
@@ -47,21 +47,23 @@ class IntakeManifoldPressureCommand : SensorCommand() {
                 val dataStart = cleanedResponse.indexOf("7E80440B") + 8
                 if (dataStart + 2 <= cleanedResponse.length) {
                     val pressure =
-                            cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
+                        cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
                     println(
-                            "IntakeManifoldPressureCommand: ELM327 format - pressure: $pressure kPa"
+                        "IntakeManifoldPressureCommand: ELM327 format - pressure: $pressure kPa"
                     )
                     pressure.toString()
                 } else {
                     "0"
                 }
             }
+
             dataBytes.size == 1 -> {
                 // Standard single byte format: A (kPa)
                 val pressure = dataBytes[0].hexToInt()
                 println("IntakeManifoldPressureCommand: Standard format, pressure: $pressure kPa")
                 pressure.toString()
             }
+
             else -> {
                 // For responses with more bytes, look for the actual pressure data
                 // Try to use the last byte

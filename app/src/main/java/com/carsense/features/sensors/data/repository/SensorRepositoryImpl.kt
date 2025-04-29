@@ -18,8 +18,6 @@ import com.carsense.features.sensors.domain.model.SensorCategories
 import com.carsense.features.sensors.domain.model.SensorCategory
 import com.carsense.features.sensors.domain.model.SensorReading
 import com.carsense.features.sensors.domain.repository.SensorRepository
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,6 +28,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /** Implementation of SensorRepository that communicates with the vehicle's OBD system */
 @Singleton
@@ -71,19 +71,19 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
     /** Register all available sensor commands */
     private fun registerAllSensorCommands() {
         val commands =
-                listOf(
-                        RPMCommand(),
-                        SpeedCommand(),
-                        CoolantTemperatureCommand(),
-                        FuelLevelCommand(),
-                        EngineLoadCommand(),
-                        IntakeAirTemperatureCommand(),
-                        ThrottlePositionCommand(),
-                        IntakeManifoldPressureCommand(),
-                        TimingAdvanceCommand(),
-                        MassAirFlowCommand(),
-                        SupportedPIDsCommand()
-                )
+            listOf(
+                RPMCommand(),
+                SpeedCommand(),
+                CoolantTemperatureCommand(),
+                FuelLevelCommand(),
+                EngineLoadCommand(),
+                IntakeAirTemperatureCommand(),
+                ThrottlePositionCommand(),
+                IntakeManifoldPressureCommand(),
+                TimingAdvanceCommand(),
+                MassAirFlowCommand(),
+                SupportedPIDsCommand()
+            )
 
         commands.forEach { command -> allSensorCommands[command.pid] = command }
 
@@ -109,7 +109,7 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
             // Get the supported PIDs command
             val supportedPIDsCommand =
-                    allSensorCommands["00"] as? SupportedPIDsCommand ?: return false
+                allSensorCommands["00"] as? SupportedPIDsCommand ?: return false
 
             // Send the command to get supported PIDs
             val response = bluetoothController.sendOBD2Command(supportedPIDsCommand.getCommand())
@@ -161,16 +161,16 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
         // Common PIDs supported by most vehicles
         val commonPIDs =
-                listOf(
-                        "04", // Engine Load
-                        "05", // Coolant Temperature
-                        "0C", // RPM
-                        "0D", // Speed
-                        "0F", // Intake Temperature
-                        "10", // MAF
-                        "11", // Throttle Position
-                        "2F" // Fuel Level
-                )
+            listOf(
+                "04", // Engine Load
+                "05", // Coolant Temperature
+                "0C", // RPM
+                "0D", // Speed
+                "0F", // Intake Temperature
+                "10", // MAF
+                "11", // Throttle Position
+                "2F" // Fuel Level
+            )
 
         // Update the supported commands map
         supportedSensorCommands.clear()
@@ -203,9 +203,9 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
             // Get the command, first checking supported commands then falling back to all commands
             val command =
-                    supportedSensorCommands[sensorId]
-                            ?: allSensorCommands[sensorId]
-                                    ?: throw IllegalArgumentException("Sensor not found: $sensorId")
+                supportedSensorCommands[sensorId]
+                    ?: allSensorCommands[sensorId]
+                    ?: throw IllegalArgumentException("Sensor not found: $sensorId")
 
             if (!bluetoothController.isConnected.value) {
                 Log.e(TAG, "Not connected to the vehicle")
@@ -221,8 +221,8 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
             val reading = command.parseResponse(response.content)
             Log.d(
-                    TAG,
-                    "Received reading for ${command.displayName}: ${reading.value} ${reading.unit}"
+                TAG,
+                "Received reading for ${command.displayName}: ${reading.value} ${reading.unit}"
             )
 
             // Update the latest reading cache
@@ -287,64 +287,64 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
         // Start the monitoring coroutine for specific sensors
         monitoringJob =
-                CoroutineScope(Dispatchers.IO).launch {
-                    Log.d(TAG, "Starting monitoring for specific sensors: $sensorIds")
+            CoroutineScope(Dispatchers.IO).launch {
+                Log.d(TAG, "Starting monitoring for specific sensors: $sensorIds")
 
-                    // Calculate optimal delay between sensor readings based on update interval
-                    // Ensure we leave at least 20% of update interval for processing overhead
-                    val safeIntervalMs = updateIntervalMs * 0.8
-                    val betweenSensorDelayMs =
-                            if (sensorIds.isEmpty()) 0L
-                            else (safeIntervalMs / sensorIds.size).toLong().coerceAtLeast(50)
+                // Calculate optimal delay between sensor readings based on update interval
+                // Ensure we leave at least 20% of update interval for processing overhead
+                val safeIntervalMs = updateIntervalMs * 0.8
+                val betweenSensorDelayMs =
+                    if (sensorIds.isEmpty()) 0L
+                    else (safeIntervalMs / sensorIds.size).toLong().coerceAtLeast(50)
 
-                    Log.d(
-                            TAG,
-                            "Update interval: ${updateIntervalMs}ms, between sensors delay: ${betweenSensorDelayMs}ms"
-                    )
+                Log.d(
+                    TAG,
+                    "Update interval: ${updateIntervalMs}ms, between sensors delay: ${betweenSensorDelayMs}ms"
+                )
 
-                    while (isActive && isMonitoring) {
-                        val cycleStartTime = System.currentTimeMillis()
+                while (isActive && isMonitoring) {
+                    val cycleStartTime = System.currentTimeMillis()
 
-                        if (!bluetoothController.isConnected.value) {
-                            Log.d(TAG, "Not connected, skipping sensor updates")
-                            delay(1000) // Wait before checking connection again
-                            continue
-                        }
+                    if (!bluetoothController.isConnected.value) {
+                        Log.d(TAG, "Not connected, skipping sensor updates")
+                        delay(1000) // Wait before checking connection again
+                        continue
+                    }
 
-                        // Request readings only for the specified sensors
-                        for (sensorId in sensorIds) {
-                            try {
-                                if (allSensorCommands.containsKey(sensorId)) {
-                                    requestReading(sensorId)
-                                    // Dynamic delay between commands to optimize polling
-                                    if (sensorIds.size > 1) {
-                                        delay(betweenSensorDelayMs)
-                                    }
+                    // Request readings only for the specified sensors
+                    for (sensorId in sensorIds) {
+                        try {
+                            if (allSensorCommands.containsKey(sensorId)) {
+                                requestReading(sensorId)
+                                // Dynamic delay between commands to optimize polling
+                                if (sensorIds.size > 1) {
+                                    delay(betweenSensorDelayMs)
                                 }
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Error monitoring sensor $sensorId", e)
                             }
-                        }
-
-                        // Calculate remaining time in this update cycle
-                        val cycleEndTime = System.currentTimeMillis()
-                        val cycleDuration = cycleEndTime - cycleStartTime
-                        val remainingTime = updateIntervalMs - cycleDuration
-
-                        // Wait for the remaining time until next update cycle, with minimum 50ms
-                        if (remainingTime > 50) {
-                            delay(remainingTime)
-                        } else {
-                            Log.w(
-                                    TAG,
-                                    "Sensor polling cycle took longer than update interval (${cycleDuration}ms > ${updateIntervalMs}ms)"
-                            )
-                            delay(50) // Minimum delay to prevent CPU overload
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error monitoring sensor $sensorId", e)
                         }
                     }
 
-                    Log.d(TAG, "Sensor monitoring stopped")
+                    // Calculate remaining time in this update cycle
+                    val cycleEndTime = System.currentTimeMillis()
+                    val cycleDuration = cycleEndTime - cycleStartTime
+                    val remainingTime = updateIntervalMs - cycleDuration
+
+                    // Wait for the remaining time until next update cycle, with minimum 50ms
+                    if (remainingTime > 50) {
+                        delay(remainingTime)
+                    } else {
+                        Log.w(
+                            TAG,
+                            "Sensor polling cycle took longer than update interval (${cycleDuration}ms > ${updateIntervalMs}ms)"
+                        )
+                        delay(50) // Minimum delay to prevent CPU overload
+                    }
                 }
+
+                Log.d(TAG, "Sensor monitoring stopped")
+            }
     }
 
     override suspend fun startMonitoring(updateIntervalMs: Long) {

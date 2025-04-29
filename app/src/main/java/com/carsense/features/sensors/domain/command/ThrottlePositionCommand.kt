@@ -35,7 +35,7 @@ class ThrottlePositionCommand : SensorCommand() {
             val throttleRaw = dataBytes[2].hexToInt()
             val throttlePercent = throttleRaw * 100 / 255.0
             println(
-                    "ThrottlePositionCommand: Using data bytes after mode+PID, Raw: $throttleRaw, Percent: $throttlePercent"
+                "ThrottlePositionCommand: Using data bytes after mode+PID, Raw: $throttleRaw, Percent: $throttlePercent"
             )
             return throttlePercent.toInt().toString()
         }
@@ -48,32 +48,34 @@ class ThrottlePositionCommand : SensorCommand() {
                 val dataStart = cleanedResponse.indexOf("7E804411") + 8
                 if (dataStart + 2 <= cleanedResponse.length) {
                     val throttleRaw =
-                            cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
+                        cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
                     val throttlePercent = throttleRaw * 100 / 255.0
                     println(
-                            "ThrottlePositionCommand: ELM327 format - Raw: $throttleRaw, Percent: $throttlePercent"
+                        "ThrottlePositionCommand: ELM327 format - Raw: $throttleRaw, Percent: $throttlePercent"
                     )
                     throttlePercent.toInt().toString()
                 } else {
                     "0"
                 }
             }
+
             dataBytes.size == 1 -> {
                 // Standard single byte format: A * 100 / 255 (%)
                 val throttleRaw = dataBytes[0].hexToInt()
                 val throttlePercent = throttleRaw * 100 / 255.0
                 println(
-                        "ThrottlePositionCommand: Standard format, Raw: $throttleRaw, Percent: $throttlePercent"
+                    "ThrottlePositionCommand: Standard format, Raw: $throttleRaw, Percent: $throttlePercent"
                 )
                 throttlePercent.toInt().toString()
             }
+
             else -> {
                 // For responses with more bytes, look for the actual throttle data
                 // Try to use the last byte
                 val throttleRaw = dataBytes.last().hexToInt()
                 val throttlePercent = throttleRaw * 100 / 255.0
                 println(
-                        "ThrottlePositionCommand: Using last byte, Raw: $throttleRaw, Percent: $throttlePercent"
+                    "ThrottlePositionCommand: Using last byte, Raw: $throttleRaw, Percent: $throttlePercent"
                 )
                 throttlePercent.toInt().toString()
             }

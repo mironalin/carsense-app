@@ -35,7 +35,7 @@ class IntakeAirTemperatureCommand : SensorCommand() {
             val tempRaw = dataBytes[2].hexToInt()
             val tempCelsius = tempRaw - 40
             println(
-                    "IntakeAirTemperatureCommand: Using data bytes after mode+PID, Raw: $tempRaw, Celsius: $tempCelsius"
+                "IntakeAirTemperatureCommand: Using data bytes after mode+PID, Raw: $tempRaw, Celsius: $tempCelsius"
             )
             return tempCelsius.toString()
         }
@@ -48,32 +48,34 @@ class IntakeAirTemperatureCommand : SensorCommand() {
                 val dataStart = cleanedResponse.indexOf("7E80440F") + 8
                 if (dataStart + 2 <= cleanedResponse.length) {
                     val tempRaw =
-                            cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
+                        cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
                     val tempCelsius = tempRaw - 40
                     println(
-                            "IntakeAirTemperatureCommand: ELM327 format - Raw: $tempRaw, Celsius: $tempCelsius"
+                        "IntakeAirTemperatureCommand: ELM327 format - Raw: $tempRaw, Celsius: $tempCelsius"
                     )
                     tempCelsius.toString()
                 } else {
                     "0"
                 }
             }
+
             dataBytes.size == 1 -> {
                 // Standard single byte format: A - 40 (°C)
                 val tempRaw = dataBytes[0].hexToInt()
                 val tempCelsius = tempRaw - 40
                 println(
-                        "IntakeAirTemperatureCommand: Standard format, Raw: $tempRaw, Celsius: $tempCelsius"
+                    "IntakeAirTemperatureCommand: Standard format, Raw: $tempRaw, Celsius: $tempCelsius"
                 )
                 tempCelsius.toString()
             }
+
             else -> {
                 // For responses with more bytes, look for the actual temperature data
                 // Try to use the last byte
                 val tempRaw = dataBytes.last().hexToInt()
                 val tempCelsius = tempRaw - 40
                 println(
-                        "IntakeAirTemperatureCommand: Using last byte, Raw: $tempRaw, Celsius: $tempCelsius"
+                    "IntakeAirTemperatureCommand: Using last byte, Raw: $tempRaw, Celsius: $tempCelsius"
                 )
                 tempCelsius.toString()
             }

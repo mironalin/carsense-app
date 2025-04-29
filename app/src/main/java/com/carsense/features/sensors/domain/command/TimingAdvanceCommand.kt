@@ -39,7 +39,7 @@ class TimingAdvanceCommand : SensorCommand() {
             val rawValue = dataBytes[2].hexToInt()
             val timingAdvance = (rawValue - 128) / 2.0
             println(
-                    "TimingAdvanceCommand: Using data bytes after mode+PID, Raw: $rawValue, Advance: $timingAdvance°"
+                "TimingAdvanceCommand: Using data bytes after mode+PID, Raw: $rawValue, Advance: $timingAdvance°"
             )
             return timingAdvance.toString()
         }
@@ -52,32 +52,34 @@ class TimingAdvanceCommand : SensorCommand() {
                 val dataStart = cleanedResponse.indexOf("7E80440E") + 8
                 if (dataStart + 2 <= cleanedResponse.length) {
                     val rawValue =
-                            cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
+                        cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
                     val timingAdvance = (rawValue - 128) / 2.0
                     println(
-                            "TimingAdvanceCommand: ELM327 format - Raw: $rawValue, Advance: $timingAdvance°"
+                        "TimingAdvanceCommand: ELM327 format - Raw: $rawValue, Advance: $timingAdvance°"
                     )
                     timingAdvance.toString()
                 } else {
                     "0"
                 }
             }
+
             dataBytes.size == 1 -> {
                 // Standard single byte format: (A - 128) / 2 (degrees)
                 val rawValue = dataBytes[0].hexToInt()
                 val timingAdvance = (rawValue - 128) / 2.0
                 println(
-                        "TimingAdvanceCommand: Standard format, Raw: $rawValue, Advance: $timingAdvance°"
+                    "TimingAdvanceCommand: Standard format, Raw: $rawValue, Advance: $timingAdvance°"
                 )
                 timingAdvance.toString()
             }
+
             else -> {
                 // For responses with more bytes, look for the actual timing advance data
                 // Try to use the last byte
                 val rawValue = dataBytes.last().hexToInt()
                 val timingAdvance = (rawValue - 128) / 2.0
                 println(
-                        "TimingAdvanceCommand: Using last byte, Raw: $rawValue, Advance: $timingAdvance°"
+                    "TimingAdvanceCommand: Using last byte, Raw: $rawValue, Advance: $timingAdvance°"
                 )
                 timingAdvance.toString()
             }

@@ -5,35 +5,35 @@ import androidx.lifecycle.viewModelScope
 import com.carsense.features.sensors.domain.model.SensorReading
 import com.carsense.features.sensors.domain.repository.SensorRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /** State container for the Sensors screen */
 data class SensorState(
-        val isLoading: Boolean = false,
-        val error: String? = null,
-        val rpmReading: SensorReading? = null,
-        val speedReading: SensorReading? = null,
-        val coolantTempReading: SensorReading? = null,
-        val intakeAirTempReading: SensorReading? = null,
-        val throttlePositionReading: SensorReading? = null,
-        val fuelLevelReading: SensorReading? = null,
-        val engineLoadReading: SensorReading? = null,
-        val intakeManifoldPressureReading: SensorReading? = null,
-        val timingAdvanceReading: SensorReading? = null,
-        val massAirFlowReading: SensorReading? = null,
-        val isMonitoring: Boolean = false,
-        val refreshRateMs: Long = 1000 // Default refresh rate of 1 second
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val rpmReading: SensorReading? = null,
+    val speedReading: SensorReading? = null,
+    val coolantTempReading: SensorReading? = null,
+    val intakeAirTempReading: SensorReading? = null,
+    val throttlePositionReading: SensorReading? = null,
+    val fuelLevelReading: SensorReading? = null,
+    val engineLoadReading: SensorReading? = null,
+    val intakeManifoldPressureReading: SensorReading? = null,
+    val timingAdvanceReading: SensorReading? = null,
+    val massAirFlowReading: SensorReading? = null,
+    val isMonitoring: Boolean = false,
+    val refreshRateMs: Long = 1000 // Default refresh rate of 1 second
 )
 
 /** ViewModel for the Sensors screen that manages sensor reading states */
 @HiltViewModel
 class SensorViewModel @Inject constructor(private val sensorRepository: SensorRepository) :
-        ViewModel() {
+    ViewModel() {
 
     private val _state = MutableStateFlow(SensorState())
     val state: StateFlow<SensorState> = _state.asStateFlow()
@@ -59,29 +59,29 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
         viewModelScope.launch {
             _state.update {
                 it.copy(
-                        isLoading = true,
-                        error = null,
-                        isMonitoring = true,
-                        refreshRateMs = refreshRateMs
+                    isLoading = true,
+                    error = null,
+                    isMonitoring = true,
+                    refreshRateMs = refreshRateMs
                 )
             }
 
             try {
                 // Start monitoring the sensors with the specified refresh rate
                 sensorRepository.startMonitoringSensors(
-                        listOf(
-                                PID_RPM,
-                                PID_SPEED,
-                                PID_COOLANT_TEMP,
-                                PID_INTAKE_AIR_TEMP,
-                                PID_THROTTLE_POSITION,
-                                PID_FUEL_LEVEL,
-                                PID_ENGINE_LOAD,
-                                PID_INTAKE_MANIFOLD_PRESSURE,
-                                PID_TIMING_ADVANCE,
-                                PID_MAF_RATE
-                        ),
-                        refreshRateMs
+                    listOf(
+                        PID_RPM,
+                        PID_SPEED,
+                        PID_COOLANT_TEMP,
+                        PID_INTAKE_AIR_TEMP,
+                        PID_THROTTLE_POSITION,
+                        PID_FUEL_LEVEL,
+                        PID_ENGINE_LOAD,
+                        PID_INTAKE_MANIFOLD_PRESSURE,
+                        PID_TIMING_ADVANCE,
+                        PID_MAF_RATE
+                    ),
+                    refreshRateMs
                 )
 
                 // Collect the RPM readings
@@ -108,7 +108,7 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                 viewModelScope.launch {
                     coolantTempFlow.collect { reading ->
                         println(
-                                "Coolant Temperature Reading received: ${reading.value} ${reading.unit}"
+                            "Coolant Temperature Reading received: ${reading.value} ${reading.unit}"
                         )
                         _state.update { it.copy(coolantTempReading = reading) }
                     }
@@ -119,7 +119,7 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                 viewModelScope.launch {
                     intakeAirTempFlow.collect { reading ->
                         println(
-                                "Intake Air Temperature Reading received: ${reading.value} ${reading.unit}"
+                            "Intake Air Temperature Reading received: ${reading.value} ${reading.unit}"
                         )
                         _state.update { it.copy(intakeAirTempReading = reading) }
                     }
@@ -130,7 +130,7 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                 viewModelScope.launch {
                     throttlePositionFlow.collect { reading ->
                         println(
-                                "Throttle Position Reading received: ${reading.value} ${reading.unit}"
+                            "Throttle Position Reading received: ${reading.value} ${reading.unit}"
                         )
                         _state.update { it.copy(throttlePositionReading = reading) }
                     }
@@ -156,11 +156,11 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
 
                 // Collect the intake manifold pressure readings
                 val intakeManifoldPressureFlow =
-                        sensorRepository.getSensorReadings(PID_INTAKE_MANIFOLD_PRESSURE)
+                    sensorRepository.getSensorReadings(PID_INTAKE_MANIFOLD_PRESSURE)
                 viewModelScope.launch {
                     intakeManifoldPressureFlow.collect { reading ->
                         println(
-                                "Intake Manifold Pressure Reading received: ${reading.value} ${reading.unit}"
+                            "Intake Manifold Pressure Reading received: ${reading.value} ${reading.unit}"
                         )
                         _state.update { it.copy(intakeManifoldPressureReading = reading) }
                     }
@@ -186,9 +186,9 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
             } catch (e: Exception) {
                 _state.update {
                     it.copy(
-                            isLoading = false,
-                            error = "Failed to start sensor readings: ${e.message}",
-                            isMonitoring = false
+                        isLoading = false,
+                        error = "Failed to start sensor readings: ${e.message}",
+                        isMonitoring = false
                     )
                 }
             }
