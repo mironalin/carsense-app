@@ -5,10 +5,12 @@ import com.carsense.features.bluetooth.domain.BluetoothController
 import com.carsense.features.sensors.domain.command.CoolantTemperatureCommand
 import com.carsense.features.sensors.domain.command.EngineLoadCommand
 import com.carsense.features.sensors.domain.command.FuelLevelCommand
+import com.carsense.features.sensors.domain.command.IntakeAirTemperatureCommand
 import com.carsense.features.sensors.domain.command.RPMCommand
 import com.carsense.features.sensors.domain.command.SensorCommand
 import com.carsense.features.sensors.domain.command.SpeedCommand
 import com.carsense.features.sensors.domain.command.SupportedPIDsCommand
+import com.carsense.features.sensors.domain.command.ThrottlePositionCommand
 import com.carsense.features.sensors.domain.model.SensorCategories
 import com.carsense.features.sensors.domain.model.SensorCategory
 import com.carsense.features.sensors.domain.model.SensorReading
@@ -72,6 +74,8 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                         CoolantTemperatureCommand(),
                         FuelLevelCommand(),
                         EngineLoadCommand(),
+                        IntakeAirTemperatureCommand(),
+                        ThrottlePositionCommand(),
                         SupportedPIDsCommand()
                 )
 
