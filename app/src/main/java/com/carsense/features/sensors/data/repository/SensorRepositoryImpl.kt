@@ -66,14 +66,14 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
     /** Register all available sensor commands */
     private fun registerAllSensorCommands() {
         val commands =
-            listOf(
-                RPMCommand(),
-                SpeedCommand(),
-                CoolantTemperatureCommand(),
-                FuelLevelCommand(),
-                EngineLoadCommand(),
-                SupportedPIDsCommand()
-            )
+                listOf(
+                        RPMCommand(),
+                        SpeedCommand(),
+                        CoolantTemperatureCommand(),
+                        FuelLevelCommand(),
+                        EngineLoadCommand(),
+                        SupportedPIDsCommand()
+                )
 
         commands.forEach { command -> allSensorCommands[command.pid] = command }
 
@@ -99,7 +99,7 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
             // Get the supported PIDs command
             val supportedPIDsCommand =
-                allSensorCommands["00"] as? SupportedPIDsCommand ?: return false
+                    allSensorCommands["00"] as? SupportedPIDsCommand ?: return false
 
             // Send the command to get supported PIDs
             val response = bluetoothController.sendOBD2Command(supportedPIDsCommand.getCommand())
@@ -151,16 +151,16 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
         // Common PIDs supported by most vehicles
         val commonPIDs =
-            listOf(
-                "04", // Engine Load
-                "05", // Coolant Temperature
-                "0C", // RPM
-                "0D", // Speed
-                "0F", // Intake Temperature
-                "10", // MAF
-                "11", // Throttle Position
-                "2F" // Fuel Level
-            )
+                listOf(
+                        "04", // Engine Load
+                        "05", // Coolant Temperature
+                        "0C", // RPM
+                        "0D", // Speed
+                        "0F", // Intake Temperature
+                        "10", // MAF
+                        "11", // Throttle Position
+                        "2F" // Fuel Level
+                )
 
         // Update the supported commands map
         supportedSensorCommands.clear()
@@ -193,9 +193,9 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
             // Get the command, first checking supported commands then falling back to all commands
             val command =
-                supportedSensorCommands[sensorId]
-                    ?: allSensorCommands[sensorId]
-                    ?: throw IllegalArgumentException("Sensor not found: $sensorId")
+                    supportedSensorCommands[sensorId]
+                            ?: allSensorCommands[sensorId]
+                                    ?: throw IllegalArgumentException("Sensor not found: $sensorId")
 
             if (!bluetoothController.isConnected.value) {
                 Log.e(TAG, "Not connected to the vehicle")
@@ -211,8 +211,8 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
             val reading = command.parseResponse(response.content)
             Log.d(
-                TAG,
-                "Received reading for ${command.displayName}: ${reading.value} ${reading.unit}"
+                    TAG,
+                    "Received reading for ${command.displayName}: ${reading.value} ${reading.unit}"
             )
 
             // Update the latest reading cache
@@ -277,35 +277,35 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
         // Start the monitoring coroutine for specific sensors
         monitoringJob =
-            CoroutineScope(Dispatchers.IO).launch {
-                Log.d(TAG, "Starting monitoring for specific sensors: $sensorIds")
+                CoroutineScope(Dispatchers.IO).launch {
+                    Log.d(TAG, "Starting monitoring for specific sensors: $sensorIds")
 
-                while (isActive && isMonitoring) {
-                    if (!bluetoothController.isConnected.value) {
-                        Log.d(TAG, "Not connected, skipping sensor updates")
-                        delay(1000) // Wait before checking connection again
-                        continue
-                    }
-
-                    // Request readings only for the specified sensors
-                    for (sensorId in sensorIds) {
-                        try {
-                            if (allSensorCommands.containsKey(sensorId)) {
-                                requestReading(sensorId)
-                                // Small delay between commands to not overwhelm the OBD adapter
-                                delay(100)
-                            }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error monitoring sensor $sensorId", e)
+                    while (isActive && isMonitoring) {
+                        if (!bluetoothController.isConnected.value) {
+                            Log.d(TAG, "Not connected, skipping sensor updates")
+                            delay(1000) // Wait before checking connection again
+                            continue
                         }
+
+                        // Request readings only for the specified sensors
+                        for (sensorId in sensorIds) {
+                            try {
+                                if (allSensorCommands.containsKey(sensorId)) {
+                                    requestReading(sensorId)
+                                    // Small delay between commands to not overwhelm the OBD adapter
+                                    delay(100)
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error monitoring sensor $sensorId", e)
+                            }
+                        }
+
+                        // Wait for the next update interval
+                        delay(updateIntervalMs)
                     }
 
-                    // Wait for the next update interval
-                    delay(updateIntervalMs)
+                    Log.d(TAG, "Sensor monitoring stopped")
                 }
-
-                Log.d(TAG, "Sensor monitoring stopped")
-            }
     }
 
     override suspend fun startMonitoring(updateIntervalMs: Long) {
@@ -323,36 +323,36 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
         // Start the monitoring coroutine
         monitoringJob =
-            CoroutineScope(Dispatchers.IO).launch {
-                Log.d(TAG, "Starting sensor monitoring")
+                CoroutineScope(Dispatchers.IO).launch {
+                    Log.d(TAG, "Starting sensor monitoring")
 
-                while (isActive && isMonitoring) {
-                    if (!bluetoothController.isConnected.value) {
-                        Log.d(TAG, "Not connected, skipping sensor updates")
-                        delay(1000) // Wait before checking connection again
-                        continue
-                    }
-
-                    // Request readings for supported sensors
-                    for (sensorId in supportedSensorCommands.keys) {
-                        // Skip the supported PIDs command in monitoring
-                        if (sensorId == "00") continue
-
-                        try {
-                            requestReading(sensorId)
-                            // Small delay between commands to not overwhelm the OBD adapter
-                            delay(100)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error monitoring sensor $sensorId", e)
+                    while (isActive && isMonitoring) {
+                        if (!bluetoothController.isConnected.value) {
+                            Log.d(TAG, "Not connected, skipping sensor updates")
+                            delay(1000) // Wait before checking connection again
+                            continue
                         }
+
+                        // Request readings for supported sensors
+                        for (sensorId in supportedSensorCommands.keys) {
+                            // Skip the supported PIDs command in monitoring
+                            if (sensorId == "00") continue
+
+                            try {
+                                requestReading(sensorId)
+                                // Small delay between commands to not overwhelm the OBD adapter
+                                delay(100)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error monitoring sensor $sensorId", e)
+                            }
+                        }
+
+                        // Wait for the next update interval
+                        delay(updateIntervalMs)
                     }
 
-                    // Wait for the next update interval
-                    delay(updateIntervalMs)
+                    Log.d(TAG, "Sensor monitoring stopped")
                 }
-
-                Log.d(TAG, "Sensor monitoring stopped")
-            }
     }
 
     override suspend fun stopMonitoring() {
