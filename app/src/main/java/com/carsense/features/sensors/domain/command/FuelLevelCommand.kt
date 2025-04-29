@@ -29,11 +29,50 @@ class FuelLevelCommand : SensorCommand() {
             throw IllegalArgumentException("No data bytes found in response: $cleanedResponse")
         }
 
-        // Fuel level is expressed as A * 100 / 255 (percentage)
-        val fuelRaw = dataBytes[0].hexToInt()
-        val fuelPercent = fuelRaw * 100 / 255.0
-        println("FuelLevelCommand: Fuel level value: $fuelPercent%")
+        // Check if we have a response that includes the mode and PID bytes (41 2F)
+        if (dataBytes.size >= 4 && dataBytes[0] == "41" && dataBytes[1] == "2F") {
+            // We have a response with mode and PID included, use the actual data bytes
+            val fuelRaw = dataBytes[2].hexToInt()
+            val fuelPercent = fuelRaw * 100 / 255.0
+            println(
+                    "FuelLevelCommand: Using data bytes after mode+PID, Raw: $fuelRaw, Percent: $fuelPercent"
+            )
+            return fuelPercent.toInt().toString()
+        }
 
-        return fuelPercent.toInt().toString()
+        // Different adapters might return different formats
+        // Try to interpret based on the data we have
+        return when {
+            cleanedResponse.contains("7E80442F") -> {
+                // Special handling for ELM327 responses
+                val dataStart = cleanedResponse.indexOf("7E80442F") + 8
+                if (dataStart + 2 <= cleanedResponse.length) {
+                    val fuelRaw =
+                            cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
+                    val fuelPercent = fuelRaw * 100 / 255.0
+                    println(
+                            "FuelLevelCommand: ELM327 format - Raw: $fuelRaw, Percent: $fuelPercent"
+                    )
+                    fuelPercent.toInt().toString()
+                } else {
+                    "0"
+                }
+            }
+            dataBytes.size == 1 -> {
+                // Standard single byte format: A * 100 / 255 (%)
+                val fuelRaw = dataBytes[0].hexToInt()
+                val fuelPercent = fuelRaw * 100 / 255.0
+                println("FuelLevelCommand: Standard format, Raw: $fuelRaw, Percent: $fuelPercent")
+                fuelPercent.toInt().toString()
+            }
+            else -> {
+                // For responses with more bytes, look for the actual fuel level data
+                // Try to use the last byte
+                val fuelRaw = dataBytes.last().hexToInt()
+                val fuelPercent = fuelRaw * 100 / 255.0
+                println("FuelLevelCommand: Using last byte, Raw: $fuelRaw, Percent: $fuelPercent")
+                fuelPercent.toInt().toString()
+            }
+        }
     }
 }
