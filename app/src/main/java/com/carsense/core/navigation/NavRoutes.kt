@@ -7,4 +7,5 @@ object NavRoutes {
     const val DASHBOARD = "dashboard"
     const val SETTINGS = "settings"
     const val DTC = "dtc"
+    const val SENSORS = "sensors"
 }
