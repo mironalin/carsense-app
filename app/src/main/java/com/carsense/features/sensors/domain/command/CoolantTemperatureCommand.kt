@@ -29,11 +29,56 @@ class CoolantTemperatureCommand : SensorCommand() {
             throw IllegalArgumentException("No data bytes found in response: $cleanedResponse")
         }
 
-        // Temperature is expressed as (A - 40) in one byte
-        val tempRaw = dataBytes[0].hexToInt()
-        val tempCelsius = tempRaw - 40
-        println("CoolantTemperatureCommand: Temperature value: $tempCelsius °C")
+        // Check if we have a response that includes the mode and PID bytes (41 05)
+        if (dataBytes.size >= 4 && dataBytes[0] == "41" && dataBytes[1] == "05") {
+            // We have a response with mode and PID included, use the actual data bytes
+            val tempRaw = dataBytes[2].hexToInt()
+            val tempCelsius = tempRaw - 40
+            println(
+                "CoolantTemperatureCommand: Using data bytes after mode+PID, Raw: $tempRaw, Celsius: $tempCelsius"
+            )
+            return tempCelsius.toString()
+        }
 
-        return tempCelsius.toString()
+        // Different adapters might return different formats
+        // Try to interpret based on the data we have
+        return when {
+            cleanedResponse.contains("7E804405") -> {
+                // Special handling for ELM327 responses
+                val dataStart = cleanedResponse.indexOf("7E804405") + 8
+                if (dataStart + 2 <= cleanedResponse.length) {
+                    val tempRaw =
+                        cleanedResponse.substring(dataStart, dataStart + 2).toIntOrNull(16) ?: 0
+                    val tempCelsius = tempRaw - 40
+                    println(
+                        "CoolantTemperatureCommand: ELM327 format - Raw: $tempRaw, Celsius: $tempCelsius"
+                    )
+                    tempCelsius.toString()
+                } else {
+                    "0"
+                }
+            }
+
+            dataBytes.size == 1 -> {
+                // Standard single byte format: A - 40 (°C)
+                val tempRaw = dataBytes[0].hexToInt()
+                val tempCelsius = tempRaw - 40
+                println(
+                    "CoolantTemperatureCommand: Standard format, Raw: $tempRaw, Celsius: $tempCelsius"
+                )
+                tempCelsius.toString()
+            }
+
+            else -> {
+                // For responses with more bytes, look for the actual temperature data
+                // Try to use the last byte
+                val tempRaw = dataBytes.last().hexToInt()
+                val tempCelsius = tempRaw - 40
+                println(
+                    "CoolantTemperatureCommand: Using last byte, Raw: $tempRaw, Celsius: $tempCelsius"
+                )
+                tempCelsius.toString()
+            }
+        }
     }
 }
