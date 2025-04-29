@@ -55,6 +55,7 @@ import com.composables.icons.lucide.Pause
 import com.composables.icons.lucide.Play
 import com.composables.icons.lucide.RefreshCw
 import com.composables.icons.lucide.Thermometer
+import com.composables.icons.lucide.Wind
 
 /** Screen that displays sensor readings in card format */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -368,6 +369,21 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                                                 )
                                         }
 
+                                        // Intake Air Temperature Card
+                                        item {
+                                                IntakeAirTemperatureCard(
+                                                        sensorReading = state.intakeAirTempReading
+                                                )
+                                        }
+
+                                        // Throttle Position Card
+                                        item {
+                                                ThrottlePositionCard(
+                                                        sensorReading =
+                                                                state.throttlePositionReading
+                                                )
+                                        }
+
                                         // Status message with refresh rate info
                                         item {
                                                 Column(
@@ -604,6 +620,142 @@ fun CoolantTemperatureCard(sensorReading: SensorReading?) {
 
                                 Text(
                                         text = "Coolant Temperature",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium
+                                )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (sensorReading == null) {
+                                Text(
+                                        text = "No data available",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color =
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                        alpha = 0.6f
+                                                )
+                                )
+                        } else if (sensorReading.isError) {
+                                Text(
+                                        text = sensorReading.value,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                )
+                        } else {
+                                Text(
+                                        text = sensorReading.value,
+                                        fontSize = 40.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                )
+
+                                Text(
+                                        text = sensorReading.unit,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                        }
+                }
+        }
+}
+
+/** Card that displays intake air temperature */
+@Composable
+fun IntakeAirTemperatureCard(sensorReading: SensorReading?) {
+        Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors =
+                        CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.Start) {
+                        Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                        ) {
+                                Icon(
+                                        imageVector = Lucide.Wind,
+                                        contentDescription = "Intake Air Temperature",
+                                        modifier = Modifier.size(32.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                )
+
+                                Spacer(modifier = Modifier.size(12.dp))
+
+                                Text(
+                                        text = "Intake Air Temperature",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium
+                                )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (sensorReading == null) {
+                                Text(
+                                        text = "No data available",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color =
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                        alpha = 0.6f
+                                                )
+                                )
+                        } else if (sensorReading.isError) {
+                                Text(
+                                        text = sensorReading.value,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                )
+                        } else {
+                                Text(
+                                        text = sensorReading.value,
+                                        fontSize = 40.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                )
+
+                                Text(
+                                        text = sensorReading.unit,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                        }
+                }
+        }
+}
+
+/** Card that displays throttle position percentage */
+@Composable
+fun ThrottlePositionCard(sensorReading: SensorReading?) {
+        Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors =
+                        CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.Start) {
+                        Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                        ) {
+                                Icon(
+                                        imageVector = Lucide.Gauge,
+                                        contentDescription = "Throttle Position",
+                                        modifier = Modifier.size(32.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                )
+
+                                Spacer(modifier = Modifier.size(12.dp))
+
+                                Text(
+                                        text = "Throttle Position",
                                         fontWeight = FontWeight.Bold,
                                         style = MaterialTheme.typography.titleMedium
                                 )
