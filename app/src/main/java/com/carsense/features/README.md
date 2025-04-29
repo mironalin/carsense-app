@@ -16,13 +16,18 @@ feature/
 ## Features
 
 ### Bluetooth
+
 Handles Bluetooth device scanning, pairing, and communication with OBD2 adapters.
 
 ### Dashboard
-Serves as the main navigation hub after connecting to a vehicle, providing access to different diagnostic features.
+
+Serves as the main navigation hub after connecting to a vehicle, providing access to different
+diagnostic features.
 
 ### OBD2
+
 Contains OBD2 diagnostic capabilities including:
+
 - Live sensor data visualization
 - Analog gauges
 - Diagnostic trouble code reading and clearing
@@ -30,6 +35,7 @@ Contains OBD2 diagnostic capabilities including:
 - Direct command console
 
 ### Settings
+
 Manages application settings and preferences.
 
 ## MVI Architecture
@@ -43,7 +49,8 @@ Each feature follows the Model-View-Intent (MVI) pattern:
 
 ## Feature Isolation
 
-Features should minimize dependencies on other features. Inter-feature communication should be handled through:
+Features should minimize dependencies on other features. Inter-feature communication should be
+handled through:
 
 1. Navigation (for UI flows)
 2. Shared domain interfaces (for business logic)

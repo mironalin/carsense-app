@@ -3,12 +3,12 @@ package com.carsense.features.welcome.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class WelcomeViewModel @Inject constructor() : ViewModel() {
@@ -24,9 +24,11 @@ class WelcomeViewModel @Inject constructor() : ViewModel() {
                     // In a real app, save the preference to DataStore
                 }
             }
+
             is WelcomeEvent.OpenSettings -> {
                 // Handle navigation to settings
             }
+
             is WelcomeEvent.Connect -> {
                 // The actual connection is handled in MainActivity
                 _state.update { it.copy(isConnecting = true) }
