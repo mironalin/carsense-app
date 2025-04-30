@@ -86,14 +86,15 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                     lastCommand = command
                     Log.d(TAG, "Sending command: $command")
 
-                    // Add carriage return and line feed to the command
-                    val fullCommand = "$command$CR$LF"
+                    // Add carriage return and line feed to the command - just use CR for faster
+                    // response
+                    val fullCommand = "$command$CR"
                     outputStream.write(fullCommand.toByteArray())
                     outputStream.flush()
                     success = true
 
-                    // Slight delay to ensure command is sent
-                    delay(100)
+                    // Reduced delay to minimum necessary for command processing
+                    delay(50) // Reduced from 100ms
                 } catch (e: IOException) {
                     Log.e(TAG, "Error sending command: ${e.message}")
                     e.printStackTrace()
@@ -101,8 +102,8 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                     isConnected = false
 
                     if (retries < MAX_RETRIES) {
-                        Log.d(TAG, "Retrying command in ${RETRY_DELAY_MS}ms")
-                        delay(RETRY_DELAY_MS)
+                        Log.d(TAG, "Retrying command in ${RETRY_DELAY_MS / 2}ms")
+                        delay(RETRY_DELAY_MS / 2) // Reduced delay for faster retry
                     }
                 }
             }
@@ -178,8 +179,10 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                                         ignoreCase = true
                                     )
                                 ) {
-                                    // Don't mark as disconnected - this often means the vehicle doesn't
-                                    // support a feature, not a connection issue with the adapter
+                                    // Don't mark as disconnected - this often means the
+                                    // vehicle doesn't
+                                    // support a feature, not a connection issue with the
+                                    // adapter
                                     Log.d(
                                         TAG,
                                         "UNABLE TO CONNECT response - vehicle likely doesn't support this feature"
@@ -202,7 +205,8 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                                         ignoreCase = true
                                     )
                                 ) {
-                                    // These are usually command errors, not connection errors
+                                    // These are usually command errors, not connection
+                                    // errors
                                     Log.d(
                                         TAG,
                                         "Command error response, but connection is still valid"
@@ -284,14 +288,14 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
 
                 // Attempt ELM327 initialization sequence
                 try {
-                    // Wait a little before initializing to allow connection to stabilize
-                    delay(2000)
+                    // Shorter wait before initializing
+                    delay(1000) // Reduced from 2000ms
 
                     // Send a few carriage returns to reset any pending command
-                    for (i in 1..3) {
+                    for (i in 1..2) { // Reduced from 3 to 2
                         outputStream.write(CR.toByteArray())
                         outputStream.flush()
-                        delay(200)
+                        delay(100) // Reduced from 200ms
                     }
 
                     // Reset the ELM327
@@ -301,34 +305,25 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                         Log.e(TAG, "Reset command failed")
                         return@withContext false
                     }
-                    delay(2000) // ELM327 needs time to reset
+                    delay(1500) // Reduced from 2000ms but still need enough time for reset
 
-                    // Turn off echo
-                    Log.d(TAG, "Turning off echo")
-                    success = sendCommand(OBD2Constants.ECHO_OFF_COMMAND)
-                    if (!success) {
-                        Log.e(TAG, "Echo off command failed")
-                        return@withContext false
-                    }
-                    delay(300)
+                    // Use a combined command string for faster setup
+                    val setupCommands =
+                        listOf(
+                            OBD2Constants.ECHO_OFF_COMMAND,
+                            OBD2Constants.LINEFEED_OFF_COMMAND,
+                            OBD2Constants.HEADER_ON_COMMAND,
+                            OBD2Constants.SPACES_OFF_COMMAND
+                        )
 
-                    // Turn off line feeds
-                    Log.d(TAG, "Turning off linefeeds")
-                    success = sendCommand(OBD2Constants.LINEFEED_OFF_COMMAND)
-                    if (!success) {
-                        Log.e(TAG, "Linefeeds off command failed")
-                        return@withContext false
+                    // Send essential setup commands with minimal delay
+                    for (cmd in setupCommands) {
+                        success = sendCommand(cmd)
+                        if (!success) {
+                            Log.w(TAG, "Setup command $cmd failed, continuing anyway")
+                        }
+                        delay(150) // Reduced from 300ms
                     }
-                    delay(300)
-
-                    // Turn on headers
-                    Log.d(TAG, "Turning on headers")
-                    success = sendCommand(OBD2Constants.HEADER_ON_COMMAND)
-                    if (!success) {
-                        Log.e(TAG, "Headers on command failed")
-                        return@withContext false
-                    }
-                    delay(300)
 
                     // Set protocol to auto
                     Log.d(TAG, "Setting protocol to auto")
@@ -337,26 +332,18 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                         Log.e(TAG, "Auto protocol command failed")
                         return@withContext false
                     }
-
-                    // Turn off spaces
-                    Log.d(TAG, "Turning off spaces")
-                    success = sendCommand(OBD2Constants.SPACES_OFF_COMMAND)
-                    if (!success) {
-                        Log.e(TAG, "Spaces off command failed")
-                        return@withContext false
-                    }
+                    delay(300) // Need more time for protocol setting
 
                     // Allow long messages
                     Log.d(TAG, "Allowing long messages")
                     success = sendCommand(OBD2Constants.LONG_MESSAGES_COMMAND)
                     if (!success) {
-                        Log.e(TAG, "Long messages command failed")
-                        return@withContext false
+                        Log.w(TAG, "Long messages command failed, continuing anyway")
                     }
 
                     Log.d(TAG, "ELM327 initialization complete")
                     isConnected = true // Explicitly mark as connected after successful init
-                    return@withContext success
+                    return@withContext true
                 } catch (e: Exception) {
                     Log.e(TAG, "Initialization exception: ${e.message}")
                     e.printStackTrace()

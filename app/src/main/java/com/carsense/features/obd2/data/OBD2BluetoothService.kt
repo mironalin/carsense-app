@@ -190,45 +190,72 @@ class OBD2BluetoothService(
     /** Applies optimized settings to the ELM327 adapter for faster communication */
     private suspend fun optimizeAdapterSettings() {
         obd2Service?.let { service ->
-            // Reset the adapter first to ensure clean state
-//            service.sendCommand("ATZ")
-//            delay(1000) // Wait for reset
+            // Reset the adapter first
+            service.sendCommand("ATZ")
+            delay(1000) // Need longer delay after reset
 
-//            // Set echo off - reduces unnecessary data
-//            service.sendCommand("ATE0")
-//            delay(200)
+            // Turn echo off - reduces unnecessary data
+            service.sendCommand("ATE0")
+            delay(100)
 
-            // Set line feeds off - reduces unnecessary data
-//            service.sendCommand("ATL0")
-//            delay(200)
+            // Set timeout to a shorter value (25ms × 4 = ~100ms)
+            // This reduces wait time for each command
+            service.sendCommand("ATST19")
+            delay(100)
 
-            // Keep headers ON - critical for both sensor readings and DTC scanning
-//            service.sendCommand("ATH1")
-//            delay(200)
+            // Set line feeds off to reduce data overhead
+            service.sendCommand("ATL0")
+            delay(100)
 
             // Turn spaces off - reduces unnecessary data
-//            service.sendCommand("ATS0")
-//            delay(200)
+            service.sendCommand("ATS0")
+            delay(100)
 
-            // Set the protocol to auto (helps with compatibility)
-//            service.sendCommand("ATSP0")
-//            delay(200)
+            // Make sure headers are ON - critical for ECU communication
+            service.sendCommand("ATH1")
+            delay(100)
 
-            // Set timeout to a reasonable value (82ms × 4 = ~328ms)
-            service.sendCommand("ATST64")
+            // Set adaptive timing to mode 1 (moderate)
+            // Mode 2 can sometimes cause missed responses
+            service.sendCommand("ATAT1")
+            delay(100)
+
+            // Set faster baud rate if supported (38400)
+            service.sendCommand("ATBRD 6D")
             delay(200)
 
-            // Set adaptive timing to mode 2 (aggresive)
-            service.sendCommand("ATAT2")
+            // Set protocol timeout multiplier to a lower value
+            service.sendCommand("ATCTM1")
+            delay(100)
+
+            // Reduce inter-message spacing for faster responses
+            service.sendCommand("ATIMS0")
+            delay(100)
+
+            // Set larger receive buffer size if supported
+            service.sendCommand("ATBRT FF")
+            delay(100)
+
+            // Set response frames
+            service.sendCommand("ATR1")
+            delay(100)
+
+            // Try using a fixed CAN protocol rather than auto if the device supports CAN
+            // Protocol 6 is ISO 15765-4 CAN (11 bit ID, 500 kbaud)
+            service.sendCommand("ATSP6")
             delay(200)
 
-//            // Confirm headers are ON (redundant but makes it explicit)
-//            service.sendCommand("ATH1")
-//            delay(200)
+            // Double-check headers are still ON
+            service.sendCommand("ATH1")
+            delay(100)
+
+            // Skip the leadup messages in responses (mode 2 is show only DLC+data)
+            service.sendCommand("ATD2")
+            delay(100)
 
             // Send a command to verify everything is working
             service.sendCommand("0100")
-            delay(300)
+            delay(200)
         }
     }
 
