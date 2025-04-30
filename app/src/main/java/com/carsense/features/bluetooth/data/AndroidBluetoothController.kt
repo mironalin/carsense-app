@@ -272,18 +272,27 @@ class AndroidBluetoothController(private val context: Context) : BluetoothContro
                 return null
             }
 
-            // DTC commands need more time to complete, especially for mode 03 (get DTCs)
-            val waitTime = if (command == "03") 1500L else 500L
+            // Optimize waiting times based on command type
+            // Special case for DTC commands (mode 03) which need more time
+            // Batch mode commands (with spaces) likely need more time too
+            val waitTime =
+                when {
+                    command == "03" -> 1000L // DTCs need more time
+                    command.contains(" ") -> 250L // Batch commands need moderate time
+                    else -> 100L // Standard commands need minimal time
+                }
+
             delay(waitTime)
 
             // Get the raw response directly after sending command
             val lastResponse = service.getLastRawResponse()
             Log.d(tag, "Raw response for $command: '$lastResponse'")
 
-            // If we see "SEARCHING..." in the response, we need to wait a bit longer
+            // Handle special cases for certain responses
+            // If SEARCHING... appears for DTC, wait a bit longer
             if (lastResponse.contains("SEARCHING") && command == "03") {
                 Log.d(tag, "Detected SEARCHING message, waiting for full response")
-                delay(1000) // Give it more time to complete
+                delay(500) // Reduced wait time for DTC completion
                 val completeResponse = service.getLastRawResponse()
                 Log.d(tag, "Updated response after waiting: '$completeResponse'")
 

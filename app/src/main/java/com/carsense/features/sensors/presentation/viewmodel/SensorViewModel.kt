@@ -27,7 +27,8 @@ data class SensorState(
     val timingAdvanceReading: SensorReading? = null,
     val massAirFlowReading: SensorReading? = null,
     val isMonitoring: Boolean = false,
-    val refreshRateMs: Long = 1000 // Default refresh rate of 1 second
+    val refreshRateMs: Long =
+        800 // Using 800ms refresh rate for balance of speed and reliability
 )
 
 /** ViewModel for the Sensors screen that manages sensor reading states */
@@ -67,122 +68,28 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
             }
 
             try {
-                // Start monitoring the sensors with the specified refresh rate
-                sensorRepository.startMonitoringSensors(
+                // Prioritize sensors into two groups - high priority and normal priority
+                // High priority sensors (RPM, Speed) should be updated more frequently
+                val highPrioritySensors = listOf(PID_RPM, PID_SPEED, PID_THROTTLE_POSITION)
+                val normalPrioritySensors =
                     listOf(
-                        PID_RPM,
-                        PID_SPEED,
                         PID_COOLANT_TEMP,
                         PID_INTAKE_AIR_TEMP,
-                        PID_THROTTLE_POSITION,
                         PID_FUEL_LEVEL,
                         PID_ENGINE_LOAD,
                         PID_INTAKE_MANIFOLD_PRESSURE,
                         PID_TIMING_ADVANCE,
                         PID_MAF_RATE
-                    ),
-                    refreshRateMs
-                )
+                    )
 
-                // Collect the RPM readings
-                val rpmFlow = sensorRepository.getSensorReadings(PID_RPM)
-                viewModelScope.launch {
-                    rpmFlow.collect { reading ->
-                        // Log the raw value for debugging
-                        println("RPM Reading received: ${reading.value} ${reading.unit}")
-                        _state.update { it.copy(rpmReading = reading, isLoading = false) }
-                    }
-                }
+                // Combine all sensors for monitoring
+                val allSensors = highPrioritySensors + normalPrioritySensors
 
-                // Collect the speed readings
-                val speedFlow = sensorRepository.getSensorReadings(PID_SPEED)
-                viewModelScope.launch {
-                    speedFlow.collect { reading ->
-                        println("Speed Reading received: ${reading.value} ${reading.unit}")
-                        _state.update { it.copy(speedReading = reading) }
-                    }
-                }
+                // Start monitoring all sensors at the specified refresh rate
+                sensorRepository.startMonitoringSensors(allSensors, refreshRateMs)
 
-                // Collect the coolant temperature readings
-                val coolantTempFlow = sensorRepository.getSensorReadings(PID_COOLANT_TEMP)
-                viewModelScope.launch {
-                    coolantTempFlow.collect { reading ->
-                        println(
-                            "Coolant Temperature Reading received: ${reading.value} ${reading.unit}"
-                        )
-                        _state.update { it.copy(coolantTempReading = reading) }
-                    }
-                }
-
-                // Collect the intake air temperature readings
-                val intakeAirTempFlow = sensorRepository.getSensorReadings(PID_INTAKE_AIR_TEMP)
-                viewModelScope.launch {
-                    intakeAirTempFlow.collect { reading ->
-                        println(
-                            "Intake Air Temperature Reading received: ${reading.value} ${reading.unit}"
-                        )
-                        _state.update { it.copy(intakeAirTempReading = reading) }
-                    }
-                }
-
-                // Collect the throttle position readings
-                val throttlePositionFlow = sensorRepository.getSensorReadings(PID_THROTTLE_POSITION)
-                viewModelScope.launch {
-                    throttlePositionFlow.collect { reading ->
-                        println(
-                            "Throttle Position Reading received: ${reading.value} ${reading.unit}"
-                        )
-                        _state.update { it.copy(throttlePositionReading = reading) }
-                    }
-                }
-
-                // Collect the fuel level readings
-                val fuelLevelFlow = sensorRepository.getSensorReadings(PID_FUEL_LEVEL)
-                viewModelScope.launch {
-                    fuelLevelFlow.collect { reading ->
-                        println("Fuel Level Reading received: ${reading.value} ${reading.unit}")
-                        _state.update { it.copy(fuelLevelReading = reading) }
-                    }
-                }
-
-                // Collect the engine load readings
-                val engineLoadFlow = sensorRepository.getSensorReadings(PID_ENGINE_LOAD)
-                viewModelScope.launch {
-                    engineLoadFlow.collect { reading ->
-                        println("Engine Load Reading received: ${reading.value} ${reading.unit}")
-                        _state.update { it.copy(engineLoadReading = reading) }
-                    }
-                }
-
-                // Collect the intake manifold pressure readings
-                val intakeManifoldPressureFlow =
-                    sensorRepository.getSensorReadings(PID_INTAKE_MANIFOLD_PRESSURE)
-                viewModelScope.launch {
-                    intakeManifoldPressureFlow.collect { reading ->
-                        println(
-                            "Intake Manifold Pressure Reading received: ${reading.value} ${reading.unit}"
-                        )
-                        _state.update { it.copy(intakeManifoldPressureReading = reading) }
-                    }
-                }
-
-                // Collect the timing advance readings
-                val timingAdvanceFlow = sensorRepository.getSensorReadings(PID_TIMING_ADVANCE)
-                viewModelScope.launch {
-                    timingAdvanceFlow.collect { reading ->
-                        println("Timing Advance Reading received: ${reading.value} ${reading.unit}")
-                        _state.update { it.copy(timingAdvanceReading = reading) }
-                    }
-                }
-
-                // Collect the mass air flow readings
-                val massAirFlowFlow = sensorRepository.getSensorReadings(PID_MAF_RATE)
-                viewModelScope.launch {
-                    massAirFlowFlow.collect { reading ->
-                        println("Mass Air Flow Reading received: ${reading.value} ${reading.unit}")
-                        _state.update { it.copy(massAirFlowReading = reading) }
-                    }
-                }
+                // Set up flows for all sensors
+                setupSensorFlows()
             } catch (e: Exception) {
                 _state.update {
                     it.copy(
@@ -191,6 +98,52 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                         isMonitoring = false
                     )
                 }
+            }
+        }
+    }
+
+    /** Set up flows for all sensors to collect readings */
+    private fun setupSensorFlows() {
+        // Create a map of all sensor flows for cleaner organization
+        val sensorFlows =
+            mapOf(
+                PID_RPM to sensorRepository.getSensorReadings(PID_RPM),
+                PID_SPEED to sensorRepository.getSensorReadings(PID_SPEED),
+                PID_COOLANT_TEMP to sensorRepository.getSensorReadings(PID_COOLANT_TEMP),
+                PID_INTAKE_AIR_TEMP to
+                        sensorRepository.getSensorReadings(PID_INTAKE_AIR_TEMP),
+                PID_THROTTLE_POSITION to
+                        sensorRepository.getSensorReadings(PID_THROTTLE_POSITION),
+                PID_FUEL_LEVEL to sensorRepository.getSensorReadings(PID_FUEL_LEVEL),
+                PID_ENGINE_LOAD to sensorRepository.getSensorReadings(PID_ENGINE_LOAD),
+                PID_INTAKE_MANIFOLD_PRESSURE to
+                        sensorRepository.getSensorReadings(PID_INTAKE_MANIFOLD_PRESSURE),
+                PID_TIMING_ADVANCE to
+                        sensorRepository.getSensorReadings(PID_TIMING_ADVANCE),
+                PID_MAF_RATE to sensorRepository.getSensorReadings(PID_MAF_RATE)
+            )
+
+        // Collect from each flow and update state
+        sensorFlows.forEach { (pid, flow) ->
+            viewModelScope.launch { flow.collect { reading -> updateReadingState(pid, reading) } }
+        }
+    }
+
+    /** Update state based on the sensor PID */
+    private fun updateReadingState(pid: String, reading: SensorReading) {
+        _state.update { state ->
+            when (pid) {
+                PID_RPM -> state.copy(rpmReading = reading, isLoading = false)
+                PID_SPEED -> state.copy(speedReading = reading)
+                PID_COOLANT_TEMP -> state.copy(coolantTempReading = reading)
+                PID_INTAKE_AIR_TEMP -> state.copy(intakeAirTempReading = reading)
+                PID_THROTTLE_POSITION -> state.copy(throttlePositionReading = reading)
+                PID_FUEL_LEVEL -> state.copy(fuelLevelReading = reading)
+                PID_ENGINE_LOAD -> state.copy(engineLoadReading = reading)
+                PID_INTAKE_MANIFOLD_PRESSURE -> state.copy(intakeManifoldPressureReading = reading)
+                PID_TIMING_ADVANCE -> state.copy(timingAdvanceReading = reading)
+                PID_MAF_RATE -> state.copy(massAirFlowReading = reading)
+                else -> state
             }
         }
     }

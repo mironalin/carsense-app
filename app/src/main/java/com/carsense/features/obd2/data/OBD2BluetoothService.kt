@@ -60,8 +60,8 @@ class OBD2BluetoothService(
                             // Permission has been checked at the beginning of the function
                             Log.d(TAG, "Socket not connected, attempting to connect")
                             socket.connect()
-                            // Give it a moment to stabilize
-                            delay(1000)
+                            // Give it a moment to stabilize, but reduced time
+                            delay(500)
                         } catch (e: IOException) {
                             Log.e(TAG, "Failed to connect socket: ${e.message}")
 
@@ -122,16 +122,27 @@ class OBD2BluetoothService(
                         }
                     }
 
-                    // Initialize the OBD2 adapter with extended timeout
+                    // Initialize the OBD2 adapter with reduced timeout
                     try {
-                        // Wait a bit before initializing
-                        delay(1500)
+                        // Wait less time before initializing
+                        delay(800)
 
+                        // Initial initialization
                         val initResult = obd2Service?.initialize() ?: false
-                        isInitialized = initResult
 
                         if (initResult) {
-                            Log.d(TAG, "OBD2 initialization successful")
+                            Log.d(TAG, "OBD2 basic initialization successful")
+
+                            // Apply additional performance optimizations to the adapter
+                            try {
+                                optimizeAdapterSettings()
+                                Log.d(TAG, "Applied performance optimizations to OBD adapter")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed to optimize adapter settings: ${e.message}")
+                                // Continue anyway as basic initialization succeeded
+                            }
+
+                            isInitialized = true
                             return@withContext true
                         } else {
                             Log.e(TAG, "OBD2 initialization failed")
@@ -173,6 +184,51 @@ class OBD2BluetoothService(
 
             // If we get here, all attempts failed
             false
+        }
+    }
+
+    /** Applies optimized settings to the ELM327 adapter for faster communication */
+    private suspend fun optimizeAdapterSettings() {
+        obd2Service?.let { service ->
+            // Reset the adapter first to ensure clean state
+            service.sendCommand("ATZ")
+            delay(1000) // Wait for reset
+
+            // Set echo off - reduces unnecessary data
+            service.sendCommand("ATE0")
+            delay(200)
+
+            // Set line feeds off - reduces unnecessary data
+            service.sendCommand("ATL0")
+            delay(200)
+
+            // Keep headers ON - critical for both sensor readings and DTC scanning
+            service.sendCommand("ATH1")
+            delay(200)
+
+            // Turn spaces off - reduces unnecessary data
+            service.sendCommand("ATS0")
+            delay(200)
+
+            // Set the protocol to auto (helps with compatibility)
+            service.sendCommand("ATSP0")
+            delay(200)
+
+            // Set timeout to a reasonable value (82ms × 4 = ~328ms)
+            service.sendCommand("ATST64")
+            delay(200)
+
+            // Set adaptive timing to mode 1 (moderate)
+            service.sendCommand("ATAT1")
+            delay(200)
+
+            // Confirm headers are ON (redundant but makes it explicit)
+            service.sendCommand("ATH1")
+            delay(200)
+
+            // Send a command to verify everything is working
+            service.sendCommand("0100")
+            delay(300)
         }
     }
 

@@ -215,8 +215,15 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
             Log.d(TAG, "Requesting reading for sensor $sensorId (${command.displayName})")
 
-            // Make first attempt
-            var response = bluetoothController.sendOBD2Command(command.getCommand())
+            // Make first attempt with proper mode prefix to ensure consistency
+            val commandStr =
+                if (!command.getCommand().startsWith("01") && sensorId != "00") {
+                    "01${command.pid}"
+                } else {
+                    command.getCommand()
+                }
+
+            var response = bluetoothController.sendOBD2Command(commandStr)
             if (response == null) {
                 Log.e(TAG, "No response received for sensor $sensorId")
                 return Result.failure(IllegalStateException("No response received"))
@@ -226,7 +233,7 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
             if (response.content.isAdapterInitializing()) {
                 Log.d(TAG, "Adapter initializing, retrying request for $sensorId after delay")
                 delay(500)
-                response = bluetoothController.sendOBD2Command(command.getCommand())
+                response = bluetoothController.sendOBD2Command(commandStr)
                 if (response == null) {
                     Log.e(TAG, "No response received on retry for sensor $sensorId")
                     return Result.failure(IllegalStateException("No response received on retry"))
@@ -238,6 +245,19 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                 TAG,
                 "Received reading for ${command.displayName}: ${reading.value} ${reading.unit}"
             )
+
+            // Skip invalid readings (like -1, FFFFFFFF, etc.)
+            if (reading.value == "FFFFFFFF" ||
+                reading.value == "-1" ||
+                reading.value.contains("ERROR") ||
+                reading.value.contains("UNABLE") ||
+                reading.value.contains("NO DATA")
+            ) {
+                Log.w(TAG, "Invalid reading detected for ${command.displayName}: ${reading.value}")
+                return Result.failure(
+                    IllegalStateException("Invalid reading value: ${reading.value}")
+                )
+            }
 
             // Update the latest reading cache
             latestReadings[sensorId] = reading
@@ -315,26 +335,23 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
             Log.w(TAG, "Adapter priming failed, continuing anyway", e)
         }
 
-        // Start the monitoring coroutine for specific sensors
+        // Disable batch mode (adapter doesn't support it properly yet)
+        val useBatchMode = false
+
+        // Start the monitoring coroutine
         monitoringJob =
             CoroutineScope(Dispatchers.IO).launch {
                 Log.d(TAG, "Starting monitoring for specific sensors: $sensorIds")
 
-                // Calculate optimal delay between sensor readings based on update interval
-                // Ensure we leave at least 20% of update interval for processing overhead
-                val safeIntervalMs = updateIntervalMs * 0.8
-                val betweenSensorDelayMs =
-                    if (sensorIds.isEmpty()) 0L
-                    else
-                        (safeIntervalMs / sensorIds.size)
-                            .toLong()
-                            .coerceAtLeast(
-                                100
-                            ) // Increased minimum delay between sensors
+                // For individual mode, keep a small delay to ensure proper handling
+                val betweenSensorDelayMs = 50L
+
+                // Use a smaller buffer for calculations
+                val safeIntervalMs = updateIntervalMs * 0.9
 
                 Log.d(
                     TAG,
-                    "Update interval: ${updateIntervalMs}ms, between sensors delay: ${betweenSensorDelayMs}ms"
+                    "Update interval: ${updateIntervalMs}ms, between sensors delay: ${betweenSensorDelayMs}ms, batch mode: $useBatchMode"
                 )
 
                 while (isActive && isMonitoring) {
@@ -342,16 +359,15 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
                     if (!bluetoothController.isConnected.value) {
                         Log.d(TAG, "Not connected, skipping sensor updates")
-                        delay(1000) // Wait before checking connection again
+                        delay(500) // Reduced wait time before checking connection again
                         continue
                     }
 
-                    // Request readings only for the specified sensors
+                    // Process sensors one by one (more reliable)
                     for (sensorId in sensorIds) {
                         try {
                             if (allSensorCommands.containsKey(sensorId)) {
                                 requestReading(sensorId)
-                                // Dynamic delay between commands to optimize polling
                                 if (sensorIds.size > 1) {
                                     delay(betweenSensorDelayMs)
                                 }
@@ -362,11 +378,11 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                     }
 
                     // Calculate remaining time in this update cycle
-                    val cycleEndTime = System.currentTimeMillis()
-                    val cycleDuration = cycleEndTime - cycleStartTime
+                    val cycleDuration = System.currentTimeMillis() - cycleStartTime
                     val remainingTime = updateIntervalMs - cycleDuration
 
-                    // Wait for the remaining time until next update cycle, with minimum 50ms
+                    // Wait for the remaining time until next update cycle, with reduced minimum
+                    // wait
                     if (remainingTime > 50) {
                         delay(remainingTime)
                     } else {
@@ -374,7 +390,7 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                             TAG,
                             "Sensor polling cycle took longer than update interval (${cycleDuration}ms > ${updateIntervalMs}ms)"
                         )
-                        delay(100) // Increased minimum delay to prevent CPU overload
+                        delay(50) // Use 50ms as minimum delay
                     }
                 }
 
