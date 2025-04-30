@@ -369,9 +369,11 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
             )
         }
     ) { paddingValues ->
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(paddingValues)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
             if (state.isLoading && state.rpmReading == null) {
                 // Show loading indicator when initially loading
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
