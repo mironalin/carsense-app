@@ -74,4 +74,18 @@ interface SensorRepository {
 
     /** Stops monitoring sensors */
     suspend fun stopMonitoring()
+
+    /**
+     * Starts monitoring specific sensors with priority-based refresh rates
+     * @param highPrioritySensors List of high priority sensor IDs (updated most frequently)
+     * @param mediumPrioritySensors List of medium priority sensor IDs (updated at medium frequency)
+     * @param lowPrioritySensors List of low priority sensor IDs (updated least frequently)
+     * @param baseRefreshRateMs The base interval for high priority sensors in milliseconds
+     */
+    suspend fun startPrioritizedMonitoring(
+        highPrioritySensors: List<String>,
+        mediumPrioritySensors: List<String>,
+        lowPrioritySensors: List<String>,
+        baseRefreshRateMs: Long = 500
+    )
 }

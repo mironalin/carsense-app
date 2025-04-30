@@ -143,7 +143,7 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
     DisposableEffect(key1 = viewModel) {
         onDispose {
             // Stop monitoring when leaving the screen
-            viewModel.stopReadings()
+            viewModel.stopMonitoring()
         }
     }
 
@@ -155,13 +155,13 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
             when (event) {
                 Lifecycle.Event.ON_PAUSE -> {
                     // Stop monitoring when app goes to background
-                    viewModel.stopReadings()
+                    viewModel.stopMonitoring()
                 }
 
                 Lifecycle.Event.ON_RESUME -> {
                     // Only restart if it was previously monitoring
                     if (state.isMonitoring) {
-                        viewModel.startReadings()
+                        viewModel.startMonitoring()
                     }
                 }
 
@@ -195,6 +195,7 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
             else -> MaterialTheme.colorScheme.primary
         }
 
+    // Status message and speed testing UI
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -211,7 +212,7 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                     IconButton(
                         onClick = {
                             // Stop monitoring before navigating back
-                            viewModel.stopReadings()
+                            viewModel.stopMonitoring()
                             onBackPressed()
                         }
                     ) { Icon(imageVector = Lucide.ArrowLeft, contentDescription = "Back") }
@@ -335,9 +336,9 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                     IconButton(
                         onClick = {
                             if (state.isMonitoring) {
-                                viewModel.stopReadings()
+                                viewModel.stopMonitoring()
                             } else {
-                                viewModel.startReadings()
+                                viewModel.startMonitoring()
                             }
                         }
                     ) {
@@ -346,24 +347,31 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                                 if (state.isMonitoring) Lucide.Pause
                                 else Lucide.Play,
                             contentDescription =
-                                if (state.isMonitoring) "Stop" else "Start"
+                                if (state.isMonitoring) "Stop Monitoring"
+                                else "Start Monitoring"
                         )
                     }
 
                     // Refresh button
-                    IconButton(onClick = { viewModel.refreshSensors() }) {
-                        Icon(imageVector = Lucide.RefreshCw, contentDescription = "Refresh")
+                    IconButton(
+                        onClick = {
+                            viewModel.stopMonitoring()
+                            viewModel.startMonitoring()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Lucide.RefreshCw,
+                            contentDescription = "Refresh Sensors"
+                        )
                     }
                 },
                 modifier = Modifier.statusBarsPadding()
             )
         }
     ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)) {
             if (state.isLoading && state.rpmReading == null) {
                 // Show loading indicator when initially loading
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
