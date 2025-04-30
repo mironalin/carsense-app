@@ -191,40 +191,40 @@ class OBD2BluetoothService(
     private suspend fun optimizeAdapterSettings() {
         obd2Service?.let { service ->
             // Reset the adapter first to ensure clean state
-            service.sendCommand("ATZ")
-            delay(1000) // Wait for reset
+//            service.sendCommand("ATZ")
+//            delay(1000) // Wait for reset
 
-            // Set echo off - reduces unnecessary data
-            service.sendCommand("ATE0")
-            delay(200)
+//            // Set echo off - reduces unnecessary data
+//            service.sendCommand("ATE0")
+//            delay(200)
 
             // Set line feeds off - reduces unnecessary data
-            service.sendCommand("ATL0")
-            delay(200)
+//            service.sendCommand("ATL0")
+//            delay(200)
 
             // Keep headers ON - critical for both sensor readings and DTC scanning
-            service.sendCommand("ATH1")
-            delay(200)
+//            service.sendCommand("ATH1")
+//            delay(200)
 
             // Turn spaces off - reduces unnecessary data
-            service.sendCommand("ATS0")
-            delay(200)
+//            service.sendCommand("ATS0")
+//            delay(200)
 
             // Set the protocol to auto (helps with compatibility)
-            service.sendCommand("ATSP0")
-            delay(200)
+//            service.sendCommand("ATSP0")
+//            delay(200)
 
             // Set timeout to a reasonable value (82ms × 4 = ~328ms)
             service.sendCommand("ATST64")
             delay(200)
 
-            // Set adaptive timing to mode 1 (moderate)
-            service.sendCommand("ATAT1")
+            // Set adaptive timing to mode 2 (aggresive)
+            service.sendCommand("ATAT2")
             delay(200)
 
-            // Confirm headers are ON (redundant but makes it explicit)
-            service.sendCommand("ATH1")
-            delay(200)
+//            // Confirm headers are ON (redundant but makes it explicit)
+//            service.sendCommand("ATH1")
+//            delay(200)
 
             // Send a command to verify everything is working
             service.sendCommand("0100")

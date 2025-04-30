@@ -28,7 +28,7 @@ data class SensorState(
     val massAirFlowReading: SensorReading? = null,
     val isMonitoring: Boolean = false,
     val refreshRateMs: Long =
-        800 // Using 800ms refresh rate for balance of speed and reliability
+        600 // Using 600ms refresh rate for faster updates with good reliability
 )
 
 /** ViewModel for the Sensors screen that manages sensor reading states */
