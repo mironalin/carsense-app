@@ -1,6 +1,7 @@
 package com.carsense.features.sensors.data.repository
 
 import android.util.Log
+import com.carsense.core.extensions.isAdapterInitializing
 import com.carsense.features.bluetooth.domain.BluetoothController
 import com.carsense.features.sensors.domain.command.CoolantTemperatureCommand
 import com.carsense.features.sensors.domain.command.EngineLoadCommand
@@ -213,10 +214,23 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
             }
 
             Log.d(TAG, "Requesting reading for sensor $sensorId (${command.displayName})")
-            val response = bluetoothController.sendOBD2Command(command.getCommand())
+
+            // Make first attempt
+            var response = bluetoothController.sendOBD2Command(command.getCommand())
             if (response == null) {
                 Log.e(TAG, "No response received for sensor $sensorId")
                 return Result.failure(IllegalStateException("No response received"))
+            }
+
+            // Check if we need to retry due to initialization state
+            if (response.content.isAdapterInitializing()) {
+                Log.d(TAG, "Adapter initializing, retrying request for $sensorId after delay")
+                delay(500)
+                response = bluetoothController.sendOBD2Command(command.getCommand())
+                if (response == null) {
+                    Log.e(TAG, "No response received on retry for sensor $sensorId")
+                    return Result.failure(IllegalStateException("No response received on retry"))
+                }
             }
 
             val reading = command.parseResponse(response.content)
@@ -285,6 +299,22 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
         isMonitoring = true
 
+        // Begin with a detection of supported PIDs
+        try {
+            if (!supportDetectionRun) {
+                detectSupportedPIDs()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "PID detection failed during monitoring start, continuing anyway", e)
+        }
+
+        // Send a sequence of commands to "prime" the adapter
+        try {
+            primeAdapter()
+        } catch (e: Exception) {
+            Log.w(TAG, "Adapter priming failed, continuing anyway", e)
+        }
+
         // Start the monitoring coroutine for specific sensors
         monitoringJob =
             CoroutineScope(Dispatchers.IO).launch {
@@ -295,7 +325,12 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                 val safeIntervalMs = updateIntervalMs * 0.8
                 val betweenSensorDelayMs =
                     if (sensorIds.isEmpty()) 0L
-                    else (safeIntervalMs / sensorIds.size).toLong().coerceAtLeast(50)
+                    else
+                        (safeIntervalMs / sensorIds.size)
+                            .toLong()
+                            .coerceAtLeast(
+                                100
+                            ) // Increased minimum delay between sensors
 
                 Log.d(
                     TAG,
@@ -339,7 +374,7 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                             TAG,
                             "Sensor polling cycle took longer than update interval (${cycleDuration}ms > ${updateIntervalMs}ms)"
                         )
-                        delay(50) // Minimum delay to prevent CPU overload
+                        delay(100) // Increased minimum delay to prevent CPU overload
                     }
                 }
 
@@ -404,5 +439,57 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
         }
 
         return false
+    }
+
+    /**
+     * Prime the adapter with a single RPM request This helps initialize the adapter properly before
+     * full monitoring begins
+     */
+    private suspend fun primeAdapter() {
+        Log.d(TAG, "Priming adapter with RPM request")
+
+        // Get the RPM command
+        val rpmCommand = allSensorCommands["0C"] ?: return
+
+        // Try multiple times with increasing delays
+        val maxAttempts = 5
+        var successful = false
+
+        for (attempt in 1..maxAttempts) {
+            try {
+                Log.d(TAG, "Adapter priming attempt $attempt/$maxAttempts")
+
+                // Send the RPM command
+                val response = bluetoothController.sendOBD2Command(rpmCommand.getCommand())
+                if (response == null) {
+                    Log.w(TAG, "No response from adapter on priming attempt $attempt")
+                    delay((500 * attempt).toLong()) // Increasing delay between attempts
+                    continue
+                }
+
+                // Check if the response indicates adapter is still initializing
+                if (!response.content.isAdapterInitializing()) {
+                    Log.d(
+                        TAG,
+                        "Adapter responded normally on attempt $attempt: ${response.content}"
+                    )
+                    successful = true
+                    break
+                }
+
+                Log.d(TAG, "Adapter still initializing on attempt $attempt, waiting longer")
+                delay((1000 * attempt).toLong()) // Progressively longer delay
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during adapter priming attempt $attempt: ${e.message}")
+                delay((500 * attempt).toLong())
+            }
+        }
+
+        if (successful) {
+            Log.d(TAG, "Adapter priming completed successfully")
+        } else {
+            Log.w(TAG, "Adapter priming completed with partial success after $maxAttempts attempts")
+            // Continue anyway, as the adapter might be ready for some commands
+        }
     }
 }

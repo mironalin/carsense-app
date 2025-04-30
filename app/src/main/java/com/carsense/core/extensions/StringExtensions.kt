@@ -33,10 +33,17 @@ fun String.containsOBD2Error(): Boolean {
     return upperCase.contains("ERROR") ||
             upperCase.contains("UNABLE TO CONNECT") ||
             upperCase.contains("NO DATA") ||
+            upperCase.contains("NODATA") ||
             upperCase.contains("BUS ERROR") ||
             upperCase.contains("CAN ERROR") ||
             upperCase.contains("BUS INIT") ||
             upperCase.contains("DATA ERROR")
+}
+
+/** Checks if this response indicates the adapter is still initializing */
+fun String.isAdapterInitializing(): Boolean {
+    val upperCase = this.uppercase()
+    return upperCase.contains("SEARCHING") || upperCase.contains("STOPPED")
 }
 
 /**

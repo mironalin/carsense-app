@@ -4,6 +4,7 @@ import com.carsense.core.command.Command
 import com.carsense.core.error.AppError
 import com.carsense.core.extensions.buildOBD2Command
 import com.carsense.core.extensions.containsOBD2Error
+import com.carsense.core.extensions.isAdapterInitializing
 import com.carsense.features.sensors.domain.model.SensorReading
 
 /** Base class for all OBD2 commands */
@@ -52,6 +53,11 @@ abstract class OBD2Command : Command<SensorReading> {
      */
     override fun parseResponse(rawResponse: String): SensorReading {
         val cleanedResponse = cleanResponse(rawResponse)
+
+        // Check for adapter initialization state
+        if (cleanedResponse.isAdapterInitializing()) {
+            return createErrorReading("Adapter initializing")
+        }
 
         return if (cleanedResponse.isBlank() || cleanedResponse.containsOBD2Error()) {
             createErrorReading("No data or error received")
