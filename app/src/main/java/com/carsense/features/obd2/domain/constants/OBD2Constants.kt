@@ -19,6 +19,9 @@ object OBD2Constants {
     const val MODE_VEHICLE_INFO = CoreOBD2Constants.MODE_VEHICLE_INFO
     const val MODE_PERMANENT_TROUBLE_CODES = CoreOBD2Constants.MODE_PERMANENT_TROUBLE_CODES
 
+    // Command Strings
+    const val CLEAR_DTC_COMMAND_STRING = "04"
+
     // Timeouts (feature-specific, longer than core defaults for better reliability)
     const val DEFAULT_TIMEOUT_MS = 5000L
     const val INITIALIZATION_TIMEOUT_MS = CoreOBD2Constants.CONNECTION_TIMEOUT
@@ -56,6 +59,8 @@ object OBD2Constants {
 
         // Vehicle information
         const val VIN = "02" // Vehicle Identification Number
+
+        val PERCENT = CoreOBD2Constants.Range.PERCENT
     }
 
     // Parameter ranges - using core ranges
@@ -64,5 +69,15 @@ object OBD2Constants {
         val SPEED = CoreOBD2Constants.Range.SPEED_KMH
         val TEMPERATURE = CoreOBD2Constants.Range.TEMPERATURE_C
         val PERCENT = CoreOBD2Constants.Range.PERCENT
+    }
+
+    /**
+     * Checks if the given command is an ELM327 AT command.
+     *
+     * @param command The command string to check.
+     * @return True if it's an AT command, false otherwise.
+     */
+    fun isAtCommand(command: String?): Boolean {
+        return command?.startsWith("AT", ignoreCase = true) == true
     }
 }
