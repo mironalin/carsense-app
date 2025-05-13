@@ -3,6 +3,7 @@ package com.carsense.features.obd2.data
 import android.util.Log
 import com.carsense.features.obd2.domain.constants.OBD2Constants
 import com.carsense.features.sensors.domain.command.RPMCommand
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -17,20 +18,71 @@ import java.io.OutputStream
 class OBD2Service(private val inputStream: InputStream, private val outputStream: OutputStream) {
     companion object {
         private const val TAG = "OBD2Service"
-        private const val PROMPT = ">"
-        private const val CR = "\r"
-        private const val LF = "\n"
-        private const val MAX_RETRIES = 3
+        private const val PROMPT = ">" // ELM327 prompt character indicating end of response
+        private const val CR = "\r" // Carriage Return
+        private const val LF = "\n" // Line Feed
+        private const val MAX_RETRIES = 3 // Max retries for sending a command
         private const val RETRY_DELAY_MS = 1000L
+        private const val MAX_RESPONSE_BUFFER_SIZE = 1024
     }
 
-    private var lastCommand: String = ""
+    /**
+     * Determines the expected prefix for a response based on the command sent. This helps in
+     * identifying and correlating responses to their specific commands.
+     *
+     * @param command The command string that was sent to the OBD2 adapter.
+     * @return The expected prefix string. For AT commands, this is often empty,
+     * ```
+     *         as their responses are varied and don't follow a strict echo pattern.
+     *         For OBD2 mode commands, it's typically the mode (incremented by 0x40)
+     *         plus the PID.
+     * ```
+     */
+    private fun getExpectedResponsePrefix(command: String): String {
+        val isAtCommand = OBD2Constants.isAtCommand(command)
+        return if (isAtCommand) {
+            // AT commands (like "ATI", "ATZ", "ATE0") have varied responses.
+            // "ATI" -> "ELM327 v1.5" (doesn't contain "ATI")
+            // "ATZ" -> "ELM327 v1.5" (might also include echoed ATZ)
+            // "ATE0" -> "ATE0\rOK" or just "OK"
+            // It's safest to use an empty prefix for AT commands and rely on the ">" prompt
+            // to determine the end of the response. The logic in executeCommand for AT already
+            // handles emitting the full segment before the prompt.
+            ""
+        } else {
+            // For OBD2 commands (e.g., "010C", "03", "0A01")
+            // The response mode is (requested mode + 0x40).
+            // The command string typically starts with a 2-character hex mode.
+            if (command.length >= 2) {
+                val modeHex = command.substring(0, 2)
+                val pidHex = if (command.length > 2) command.substring(2) else ""
+
+                modeHex.toIntOrNull(16)?.let { modeInt ->
+                    val responseModeInt =
+                        modeInt + 0x40 // OBD2 standard: response mode = request mode + 0x40
+                    val responseModeHex = responseModeInt.toString(16).uppercase()
+                    return responseModeHex + pidHex
+                }
+                // Fallback if mode parsing fails (e.g., command is not hex or too short)
+                Log.w(
+                    TAG,
+                    "getExpectedResponsePrefix: Could not parse mode from command '$command'. Using command as fallback prefix."
+                )
+                return command
+            } else {
+                // Command is too short to be a standard OBD2 mode+pid command
+                Log.w(
+                    TAG,
+                    "getExpectedResponsePrefix: Command '$command' is too short. Using command as fallback prefix."
+                )
+                return command
+            }
+        }
+    }
+
     private var isConnected = true
 
-    // Store the last raw response
-    private var lastRawResponse: String = ""
-
-    /** Validates the connection to the OBD adapter */
+    /** Validates the connection to the OBD adapter by sending a simple CR and then "ATI". */
     private suspend fun validateConnection(): Boolean {
         if (!isConnected) {
             return false
@@ -59,7 +111,13 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
         }
     }
 
-    /** Sends a command to the OBD adapter */
+    /**
+     * Sends a command to the OBD adapter. This method includes logic to clear stale data from the
+     * input stream before sending the command and implements a retry mechanism.
+     *
+     * @param command The command string to send.
+     * @return True if the command was sent successfully, false otherwise.
+     */
     suspend fun sendCommand(command: String): Boolean {
         return withContext(Dispatchers.IO) {
             var retries = 0
@@ -82,14 +140,60 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                         }
                     }
 
-                    // Store command for response pairing
-                    lastCommand = command
                     Log.d(TAG, "Sending command: $command")
+
+                    // Clear any stale data from the input stream before sending new command.
+                    // This is crucial to prevent previous, unread responses from interfering
+                    // with the current command's response.
+                    try {
+                        var available = inputStream.available()
+                        if (available > 0) {
+                            Log.d(
+                                TAG,
+                                "sendCommand ('$command'): Clearing $available stale bytes from input stream..."
+                            )
+                            val staleDataBuffer = ByteArray(2048) // Max buffer to clear at once
+                            while (available > 0) {
+                                val bytesRead =
+                                    inputStream.read(
+                                        staleDataBuffer,
+                                        0,
+                                        java.lang.Math.min(available, staleDataBuffer.size)
+                                    )
+                                if (bytesRead <= 0) {
+                                    Log.w(
+                                        TAG,
+                                        "sendCommand ('$command'): Read $bytesRead bytes while clearing stale data. Breaking clear loop. Available was $available."
+                                    )
+                                    break
+                                }
+                                Log.d(
+                                    TAG,
+                                    "sendCommand ('$command'): Cleared $bytesRead stale bytes segment: " +
+                                            String(staleDataBuffer, 0, bytesRead)
+                                                .replace("\\r", "\\\\r")
+                                                .replace("\\n", "\\\\n")
+                                                .replace(">", "[PROMPT]")
+                                )
+                                delay(
+                                    20
+                                ) // Brief pause to allow more data to arrive if stream is active
+                                available = inputStream.available()
+                            }
+                            Log.d(TAG, "sendCommand ('$command'): Finished clearing stale bytes.")
+                        }
+                    } catch (e: IOException) {
+                        Log.w(
+                            TAG,
+                            "sendCommand ('$command'): IOException while clearing stale input stream: ${e.message}"
+                        )
+                    }
 
                     // Add carriage return and line feed to the command - just use CR for faster
                     // response
                     val fullCommand = "$command$CR"
-                    outputStream.write(fullCommand.toByteArray())
+                    val commandBytes = fullCommand.toByteArray()
+                    outputStream.write(commandBytes)
                     outputStream.flush()
                     success = true
 
@@ -113,156 +217,316 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
     }
 
     /** Listen for responses from the OBD adapter */
+    @Deprecated("This method is being refactored. Use executeCommand instead.")
     fun listenForResponses(): Flow<OBD2Response> {
         return flow {
+            // This flow is problematic due to shared state (lastCommand).
+            // It should be redesigned or its logic incorporated into a new
+            // command execution mechanism that properly correlates requests and responses.
+            Log.w(
+                TAG,
+                "listenForResponses() is deprecated and will be removed or refactored."
+            )
             if (!isConnected) {
                 Log.e(TAG, "Cannot listen for responses - not connected")
-                val errorResponse = OBD2Response.createError("", "Not connected to adapter")
+                val errorResponse =
+                    OBD2Response.createError("DEPRECATED", "Not connected to adapter")
                 emit(errorResponse)
                 return@flow
             }
 
-            val buffer = StringBuilder()
-            val responseBuffer = ByteArray(1024)
-
-            try {
-                while (isConnected) {
-                    try {
-                        val available = inputStream.available()
-                        if (available <= 0) {
-                            delay(100) // Avoid tight polling loop
-                            continue
-                        }
-
-                        val byteCount =
-                            try {
-                                val count = inputStream.read(responseBuffer)
-                                Log.d(TAG, "Read $count bytes from socket")
-                                count
-                            } catch (e: IOException) {
-                                Log.e(TAG, "Error reading from socket: ${e.message}")
-                                isConnected = false
-                                throw IOException("Failed to read from OBD adapter", e)
-                            }
-
-                        if (byteCount <= 0) {
-                            continue
-                        }
-
-                        val response = responseBuffer.decodeToString(endIndex = byteCount)
-                        Log.d(TAG, "Received raw data: $response")
-                        buffer.append(response)
-
-                        // Process complete responses (ending with prompt)
-                        // ELM327 responses end with '>' character
-                        while (buffer.contains(PROMPT)) {
-                            val endIndex = buffer.indexOf(PROMPT)
-                            val completeResponse =
-                                buffer.substring(0, endIndex)
-                                    .trim()
-                                    .replace(CR, "")
-                                    .replace(LF, "")
-                                    .replace("\\s+".toRegex(), " ")
-
-                            if (completeResponse.isNotEmpty()) {
-                                Log.d(
-                                    TAG,
-                                    "Complete response for $lastCommand: $completeResponse"
-                                )
-
-                                // Store the raw response
-                                lastRawResponse = completeResponse
-
-                                // Check for error responses that indicate connection issues
-                                if (completeResponse.contains(
-                                        "UNABLE TO CONNECT",
-                                        ignoreCase = true
-                                    )
-                                ) {
-                                    // Don't mark as disconnected - this often means the
-                                    // vehicle doesn't
-                                    // support a feature, not a connection issue with the
-                                    // adapter
-                                    Log.d(
-                                        TAG,
-                                        "UNABLE TO CONNECT response - vehicle likely doesn't support this feature"
-                                    )
-                                } else if (completeResponse.contains(
-                                        "NO DATA",
-                                        ignoreCase = true
-                                    )
-                                ) {
-                                    Log.d(
-                                        TAG,
-                                        "NO DATA response - command valid but no response from vehicle"
-                                    )
-                                } else if (completeResponse.contains(
-                                        "ERROR",
-                                        ignoreCase = true
-                                    ) ||
-                                    completeResponse.contains(
-                                        "?",
-                                        ignoreCase = true
-                                    )
-                                ) {
-                                    // These are usually command errors, not connection
-                                    // errors
-                                    Log.d(
-                                        TAG,
-                                        "Command error response, but connection is still valid"
-                                    )
-                                }
-
-                                // Decode the OBD2 response
-                                val decodedResponse =
-                                    OBD2Decoder.decodeResponse(
-                                        lastCommand,
-                                        completeResponse
-                                    )
-                                Log.d(
-                                    TAG,
-                                    "Decoded response: value=${decodedResponse.decodedValue}, unit=${decodedResponse.unit}, isError=${decodedResponse.isError}"
-                                )
-                                emit(decodedResponse)
-                            }
-
-                            buffer.delete(0, endIndex + 1)
-                        }
-                    } catch (e: IOException) {
-                        Log.e(TAG, "IO error in response listener: ${e.message}")
-                        isConnected = false
-                        val errorResponse =
-                            OBD2Response.createError(
-                                lastCommand,
-                                "IO Error: ${e.message ?: "Unknown IO error"}"
-                            )
-                        emit(errorResponse)
-                        break
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in response listener: ${e.message}")
-                isConnected = false
-                e.printStackTrace()
-
-                val errorResponse =
-                    OBD2Response.createError(
-                        lastCommand,
-                        "Error: ${e.message ?: "Unknown error"}"
-                    )
-                emit(errorResponse)
-            }
+            // The old implementation is left here for reference during refactoring,
+            // but it should not be used.
+            // ... (old problematic implementation was here) ...
+            emit(
+                OBD2Response.createError(
+                    "DEPRECATED",
+                    "Functionality moved to executeCommand"
+                )
+            )
         }
             .flowOn(Dispatchers.IO)
     }
 
     /**
-     * Gets the last raw response received from the OBD2 adapter
-     * @return The last raw response as a string
+     * Executes an OBD2 command and returns a Flow of its specific responses. This function handles
+     * sending the command and then processing the input stream to find and parse only the
+     * response(s) relevant to the sent command. It manages timeouts and various response types
+     * including standard OBD, AT commands, and error conditions.
+     *
+     * @param command The OBD2 command to send (e.g., "010C" for RPM, "ATI" for adapter info).
+     * @return A Flow emitting OBD2Response objects for the given command.
+     * ```
+     *         The flow will complete after emitting the relevant response(s) or an error/timeout.
+     * ```
      */
-    fun getLastRawResponse(): String {
-        Log.d(TAG, "Getting last raw response: '$lastRawResponse'")
-        return lastRawResponse
+    fun executeCommand(command: String): Flow<OBD2Response> {
+        return flow {
+            Log.d(TAG, "executeCommand: Starting for command '$command'")
+            if (!isConnected) {
+                Log.e(TAG, "executeCommand: Not connected, cannot send command '$command'")
+                emit(OBD2Response.createError(command, "Not connected"))
+                return@flow
+            }
+
+            if (!sendCommand(command)) { // sendCommand is a suspend function
+                Log.e(TAG, "executeCommand: Failed to send command '$command'")
+                emit(OBD2Response.createError(command, "Failed to send command"))
+                return@flow
+            }
+
+            val isAtCommand = command.startsWith("AT", ignoreCase = true)
+
+            val expectedResponsePrefix = getExpectedResponsePrefix(command)
+
+            val buffer = ByteArray(MAX_RESPONSE_BUFFER_SIZE)
+            val accumulatedResponse = StringBuilder()
+            var continueReading = true
+            val commandTimeoutMs =
+                5000L // Timeout for waiting for a response for this specific command
+            var elapsedTimeMs = 0L
+            val readDelayMs = 50L // How long to wait between reads if no data
+
+            while (continueReading && elapsedTimeMs < commandTimeoutMs) {
+                try {
+                    if (inputStream.available() > 0) {
+                        val byteCount = inputStream.read(buffer)
+                        if (byteCount > 0) {
+                            val rawChunk = buffer.decodeToString(endIndex = byteCount)
+                            Log.d(
+                                TAG,
+                                "executeCommand ('$command'): Read $byteCount bytes: \"$rawChunk\""
+                            )
+                            accumulatedResponse.append(
+                                rawChunk.replace(CR, "").replace(LF, "")
+                            )
+
+                            // Check for prompt character, indicating end of a full ELM327
+                            // response block
+                            if (accumulatedResponse.contains(PROMPT)) {
+                                val responses = accumulatedResponse.toString().split(PROMPT)
+                                accumulatedResponse
+                                    .clear() // Clear buffer for next potential partial
+                                // response
+
+                                // Process each segment separated by the prompt character.
+                                // A single read might contain multiple such segments.
+                                for (i in responses.indices) {
+                                    val singleFullResponse = responses[i].trim()
+                                    if (singleFullResponse.isEmpty()) continue
+
+                                    Log.d(
+                                        TAG,
+                                        "executeCommand ('$command'): Processing complete segment: \"$singleFullResponse\""
+                                    )
+
+                                    // For AT commands with an empty expectedResponsePrefix,
+                                    // any data received before the prompt is considered the
+                                    // response.
+                                    if (isAtCommand && expectedResponsePrefix.isEmpty()) {
+                                        Log.d(
+                                            TAG,
+                                            "executeCommand ('$command'): AT command with empty prefix, accepting segment: \"$singleFullResponse\""
+                                        )
+                                        val atResponse =
+                                            OBD2Response(
+                                                command = command,
+                                                rawData = singleFullResponse,
+                                                decodedValue =
+                                                    singleFullResponse, // For
+                                                // AT,
+                                                // raw
+                                                // is
+                                                // often
+                                                // the
+                                                // decoded value
+                                                unit = "",
+                                                isError = false
+                                            )
+                                        emit(atResponse)
+                                        continueReading = false // Found our response
+                                        break // Exit loop over split responses
+                                    } else if (singleFullResponse
+                                            .replace(" ", "")
+                                            .indexOf(
+                                                expectedResponsePrefix.replace(
+                                                    " ",
+                                                    ""
+                                                ),
+                                                startIndex = 0,
+                                                ignoreCase = true
+                                            ) != -1
+                                    ) {
+                                        Log.i(
+                                            TAG,
+                                            "executeCommand ('$command'): Matched response \"$singleFullResponse\""
+                                        )
+                                        val decoded =
+                                            OBD2Decoder.decodeResponse(
+                                                command,
+                                                singleFullResponse
+                                            )
+                                        emit(decoded)
+                                        continueReading = false // Found our response
+                                        break // Exit loop over split responses
+                                    } else if (command ==
+                                        OBD2Constants
+                                            .CLEAR_DTC_COMMAND_STRING &&
+                                        singleFullResponse
+                                            .trim()
+                                            .equals(
+                                                "NO DATA",
+                                                ignoreCase = true
+                                            )
+                                    ) {
+                                        Log.i(
+                                            TAG,
+                                            "executeCommand ('$command'): Received 'NO DATA' for Mode 04 (Clear DTCs), treating as success."
+                                        )
+                                        emit(
+                                            OBD2Response(
+                                                command = command,
+                                                rawData = singleFullResponse,
+                                                decodedValue = "NO DATA",
+                                                unit = "",
+                                                isError = false
+                                            )
+                                        )
+                                        continueReading = false
+                                        break
+                                    } else if (singleFullResponse.contains(
+                                            "NODATA", // Note: "NO DATA" (with
+                                            // space) handled above for
+                                            // "04" specifically
+                                            ignoreCase = true
+                                        ) ||
+                                        singleFullResponse.contains(
+                                            "UNABLETOCONNECT",
+                                            ignoreCase = true
+                                        ) ||
+                                        singleFullResponse.contains(
+                                            "CANERROR",
+                                            ignoreCase = true
+                                        ) ||
+                                        singleFullResponse.contains(
+                                            "BUSINIT",
+                                            ignoreCase = true
+                                        ) || // Often followed by ERROR
+                                        singleFullResponse.contains(
+                                            "?",
+                                            ignoreCase = true
+                                        ) // ELM327 often sends '?' for unknown
+                                    // command
+                                    ) {
+                                        Log.w(
+                                            TAG,
+                                            "executeCommand ('$command'): Received error/status: \"$singleFullResponse\""
+                                        )
+                                        val errorMsg =
+                                            "Device responded: $singleFullResponse"
+                                        // Check if it's an error for the *current* command
+                                        // Some errors like '?' are generic. Others might be
+                                        // specific if the prefix matches.
+                                        if (singleFullResponse
+                                                .replace(" ", "")
+                                                .startsWith(
+                                                    expectedResponsePrefix
+                                                        .replace(" ", ""),
+                                                    ignoreCase = false
+                                                ) ||
+                                            !OBD2Constants.isAtCommand(
+                                                command
+                                            ) // Apply to PID commands more
+                                        // strictly
+                                        ) {
+                                            emit(
+                                                OBD2Response.createError(
+                                                    command,
+                                                    errorMsg
+                                                )
+                                            )
+                                            continueReading = false
+                                            break
+                                        } else {
+                                            // It's some other status message not directly
+                                            // for our command, log and continue waiting
+                                            Log.d(
+                                                TAG,
+                                                "executeCommand ('$command'): Ignoring intermediate status: \"$singleFullResponse\""
+                                            )
+                                        }
+                                    } else if (singleFullResponse.contains(
+                                            "SEARCHING...",
+                                            ignoreCase = true
+                                        )
+                                    ) {
+                                        Log.d(
+                                            TAG,
+                                            "executeCommand ('$command'): Device is searching, continue waiting..."
+                                        )
+                                        // continue waiting for actual data or prompt
+                                    } else {
+                                        Log.d(
+                                            TAG,
+                                            "executeCommand ('$command'): Received non-matching/intermediate data: \"$singleFullResponse\" - discarding or queueing for other handlers if any."
+                                        )
+                                        // This part is tricky in a shared input stream
+                                        // scenario.
+                                        // For a per-command reader, we might discard if
+                                        // it's not ours.
+                                        // If other commands are truly concurrent, this data
+                                        // might belong to them.
+                                    }
+                                }
+                                // If the last part of split was partial (no prompt yet),
+                                // put it back
+                                if (!rawChunk.endsWith(PROMPT) && responses.isNotEmpty()) {
+                                    if (responses.last().isNotEmpty()) {
+                                        accumulatedResponse.append(responses.last())
+                                    }
+                                }
+                            }
+                        } else { // byteCount <= 0, possibly end of stream if socket closed
+                            delay(readDelayMs)
+                            elapsedTimeMs += readDelayMs
+                        }
+                    } else { // No data available
+                        delay(readDelayMs)
+                        elapsedTimeMs += readDelayMs
+                    }
+                } catch (e: CancellationException) {
+                    Log.d(
+                        TAG,
+                        "executeCommand ('$command'): Coroutine cancelled during/after emission",
+                        e
+                    )
+                    throw e // Rethrow cancellation exceptions
+                } catch (e: IOException) {
+                    Log.e(TAG, "executeCommand ('$command'): IOException: ${e.message}", e)
+                    emit(OBD2Response.createError(command, "IOException: ${e.message}"))
+                    continueReading = false
+                    isConnected = false // Assume connection lost
+                } catch (e: Exception) {
+                    Log.e(
+                        TAG,
+                        "executeCommand ('$command'): Generic Exception: ${e.message}",
+                        e
+                    )
+                    emit(OBD2Response.createError(command, "Exception: ${e.message}"))
+                    continueReading = false
+                }
+            }
+
+            if (continueReading && elapsedTimeMs >= commandTimeoutMs) {
+                Log.w(
+                    TAG,
+                    "executeCommand ('$command'): Timed out after ${commandTimeoutMs}ms"
+                )
+                emit(OBD2Response.createError(command, "Timeout waiting for response"))
+            }
+            Log.d(TAG, "executeCommand: Finished for command '$command'")
+        }
+            .flowOn(Dispatchers.IO)
     }
 
     /**
@@ -273,7 +537,12 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
         return isConnected
     }
 
-    /** Initialize the OBD2 adapter with setup commands */
+    /**
+     * Initializes the OBD2 adapter with a sequence of setup AT commands. This typically includes
+     * resetting the adapter, turning echo off, setting automatic protocol detection, etc.
+     *
+     * @return True if initialization sequence was sent successfully, false otherwise.
+     */
     suspend fun initialize(): Boolean {
         return withContext(Dispatchers.IO) {
             Log.d(TAG, "Starting ELM327 initialization")
@@ -291,14 +560,14 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                     // Shorter wait before initializing
                     delay(1000) // Reduced from 2000ms
 
-                    // Send a few carriage returns to reset any pending command
+                    // Send a few carriage returns to reset any pending command from the ELM327.
                     for (i in 1..2) { // Reduced from 3 to 2
                         outputStream.write(CR.toByteArray())
                         outputStream.flush()
                         delay(100) // Reduced from 200ms
                     }
 
-                    // Reset the ELM327
+                    // Reset the ELM327 to its default state.
                     Log.d(TAG, "Sending reset command")
                     success = sendCommand(OBD2Constants.RESET_COMMAND)
                     if (!success) {
@@ -316,7 +585,8 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                             OBD2Constants.SPACES_OFF_COMMAND
                         )
 
-                    // Send essential setup commands with minimal delay
+                    // Send essential setup commands with minimal delay between them.
+                    // These commands configure the ELM327 for optimal communication.
                     for (cmd in setupCommands) {
                         success = sendCommand(cmd)
                         if (!success) {
@@ -325,7 +595,8 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                         delay(150) // Reduced from 300ms
                     }
 
-                    // Set protocol to auto
+                    // Set protocol to auto-detect. ELM327 will try various protocols to connect to
+                    // the vehicle.
                     Log.d(TAG, "Setting protocol to auto")
                     success = sendCommand(OBD2Constants.PROTOCOL_AUTO_COMMAND)
                     if (!success) {
@@ -334,7 +605,8 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                     }
                     delay(300) // Need more time for protocol setting
 
-                    // Allow long messages
+                    // Allow long messages, important for multi-frame responses (e.g., VIN, some DTC
+                    // lists).
                     Log.d(TAG, "Allowing long messages")
                     success = sendCommand(OBD2Constants.LONG_MESSAGES_COMMAND)
                     if (!success) {
@@ -359,7 +631,15 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
         }
     }
 
-    /** Sends OBD2 diagnostic command to check vehicle readiness */
+    /**
+     * Sends a basic OBD2 diagnostic command (e.g., RPM) to check if the vehicle is responsive.
+     * @return True if the command was sent and a response is likely, false otherwise.
+     * @Deprecated This method might not be fully reliable as it doesn't analyze the response.
+     * ```
+     *             Connection status is better managed by `isConnected` and actual command execution flows.
+     * ```
+     */
+    @Deprecated("Use isConnected() and observe command results directly.")
     suspend fun checkVehicleConnection(): Boolean {
         return withContext(Dispatchers.IO) {
             try {
