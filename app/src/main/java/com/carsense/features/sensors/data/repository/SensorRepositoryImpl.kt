@@ -119,7 +119,7 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
     private val MAX_LOWER_PRIORITY_SENSORS_PER_CYCLE = 1
 
     // Minimum time to wait between sensor readings to avoid overloading the adapter
-    private val MIN_SENSOR_DELAY_MS = 20L
+    private val MIN_SENSOR_DELAY_MS = 1L
 
     // Default connection check timeout
     private val CONNECTION_CHECK_TIMEOUT_MS = 250L
@@ -423,14 +423,14 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
     /**
      * Provides a [Flow] of [SensorReading] objects.
      *
-     * This flow emits sensor data as it becomes available from the monitoring loop
-     * (started by [startMonitoring]) or from individual calls to [readSensor] if they
-     * also choose to emit to the shared flow.
+     * This flow emits sensor data as it becomes available from the monitoring loop (started by
+     * [startMonitoring]) or from individual calls to [readSensor] if they also choose to emit to
+     * the shared flow.
      *
-     * Consumers can collect from this flow to receive real-time updates of sensor values.
-     * It is a [MutableSharedFlow] internally, exposed as a [SharedFlow], meaning it does not
-     * hold a state for late subscribers by default (replay = 0) but will share emissions
-     * among active collectors.
+     * Consumers can collect from this flow to receive real-time updates of sensor values. It is a
+     * [MutableSharedFlow] internally, exposed as a [SharedFlow], meaning it does not hold a state
+     * for late subscribers by default (replay = 0) but will share emissions among active
+     * collectors.
      *
      * @return A [SharedFlow] that emits [SensorReading] objects.
      */
@@ -663,16 +663,16 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
      * Retrieves a list of sensor commands that are confirmed to be supported by the vehicle.
      *
      * This method relies on the [supportedSensorCommands] map, which is populated by
-     * [detectSupportedPIDs]. If PID support detection has not run, it might return all
-     * registered commands or an empty list, depending on initialization logic.
+     * [detectSupportedPIDs]. If PID support detection has not run, it might return all registered
+     * commands or an empty list, depending on initialization logic.
      *
      * Optionally, the list can be filtered by a [SensorCategory].
      *
-     * @param category An optional [SensorCategory] to filter the results. If `null`, all
-     *   supported sensor commands are returned.
-     * @return A list of [SensorCommand] objects that the connected vehicle supports.
-     *   Returns an empty list if PID detection hasn't run successfully or no sensors
-     *   are supported/match the category.
+     * @param category An optional [SensorCategory] to filter the results. If `null`, all supported
+     * sensor commands are returned.
+     * @return A list of [SensorCommand] objects that the connected vehicle supports. Returns an
+     * empty list if PID detection hasn't run successfully or no sensors are supported/match the
+     * category.
      */
     override suspend fun getSupportedSensors(): List<String> {
         // Ensure we've run PID support detection
@@ -723,24 +723,30 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
      * This function launches a new coroutine that:
      * 1. Initializes PID support by calling [detectSupportedPIDs] if not already done.
      * 2. Filters the `selectedPIDs` against the [supportedSensorCommands].
-     * 3. Enters a loop that continues as long as [isMonitoring] is true and the coroutine is active.
+     * 3. Enters a loop that continues as long as [isMonitoring] is true and the coroutine is
+     * active.
      * 4. Inside the loop, it iterates through the supported selected PIDs.
      * 5. For each PID, it calls [readSensor] to get the latest [SensorReading].
      * 6. Successfully read sensor data is emitted to the [_sensorReadings] shared flow.
      * 7. Implements adaptive timing: dynamically adjusts delays between sensor reads based on
+     * ```
      *    [averageSensorQueryTimeMs] and the overall `updateIntervalMs` to try and meet the
      *    target update rate without overloading the OBD2 bus.
+     * ```
      * 8. Prioritizes sensors based on their category (e.g., high-priority sensors like RPM, Speed
+     * ```
      *    might be polled more frequently or with less delay within a cycle).
-     * 9. Handles potential errors during sensor reads, logging them but generally continuing the loop.
-     *10. Ensures a minimum delay ([MIN_SENSOR_DELAY_MS]) between individual sensor requests.
+     * ```
+     * 9. Handles potential errors during sensor reads, logging them but generally continuing the
+     * loop.
+     * 10. Ensures a minimum delay ([MIN_SENSOR_DELAY_MS]) between individual sensor requests.
      *
      * If already monitoring, it stops the current job and starts a new one with the new parameters.
      * The monitoring occurs on [Dispatchers.IO].
      *
      * @param selectedPIDs A list of PID strings (e.g., "0C" for RPM) to monitor.
-     * @param updateIntervalMs The target interval in milliseconds at which a full cycle of
-     *   polling the selected PIDs should ideally complete. Adaptive timing will attempt to honor this.
+     * @param updateIntervalMs The target interval in milliseconds at which a full cycle of polling
+     * the selected PIDs should ideally complete. Adaptive timing will attempt to honor this.
      */
     override suspend fun startMonitoringSensors(sensorIds: List<String>, updateIntervalMs: Long) {
         if (isMonitoring) {
@@ -775,7 +781,7 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                 Log.d(TAG, "Starting monitoring for specific sensors: $sensorIds")
 
                 // For individual mode, keep a small delay to ensure proper handling
-                val betweenSensorDelayMs = 50L
+                val betweenSensorDelayMs = 10L
 
                 // Use a smaller buffer for calculations
                 val safeIntervalMs = updateIntervalMs * 0.9
@@ -821,7 +827,7 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                             TAG,
                             "Sensor polling cycle took longer than update interval (${cycleDuration}ms > ${updateIntervalMs}ms)"
                         )
-                        delay(50) // Use 50ms as minimum delay
+                        // delay(50) // Use 50ms as minimum delay
                     }
                 }
 
@@ -1238,7 +1244,7 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
         val betweenSensorDelayMs = MIN_SENSOR_DELAY_MS
 
         // Set initial average sensor query time based on default refresh rate
-        averageSensorQueryTimeMs = 120
+        averageSensorQueryTimeMs = 25
 
         // Start the monitoring coroutine with the supervisor job to prevent error propagation
         monitoringJob =
@@ -1369,7 +1375,7 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                 if (allSensorCommands.containsKey(sensorId)) {
                     requestReading(sensorId)
                     if (sensorIds.size > 1) {
-                        delay(delayMs)
+                        // delay(delayMs)
                     }
                 }
             } catch (e: CancellationException) {

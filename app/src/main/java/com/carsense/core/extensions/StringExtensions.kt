@@ -61,5 +61,10 @@ fun String.formatOBD2Command(addSpaces: Boolean = false): String {
 
 /** Builds an OBD2 command string from mode and PID */
 fun buildOBD2Command(mode: Int, pid: String): String {
-    return String.format("%02X%s", mode, pid)
+    // Append "1" to specify expecting one response, for faster replies.
+    // This should generally apply to mode 01, 02, 09 etc.
+    // Mode 03 (DTC read) and 04 (DTC clear) are handled by their specific command classes
+    // and override getCommand(), so they won't use this function.
+    // AT commands are also handled separately.
+    return String.format("%02X%s1", mode, pid)
 }

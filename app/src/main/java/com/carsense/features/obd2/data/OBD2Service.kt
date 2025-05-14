@@ -55,7 +55,21 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
             // The command string typically starts with a 2-character hex mode.
             if (command.length >= 2) {
                 val modeHex = command.substring(0, 2)
-                val pidHex = if (command.length > 2) command.substring(2) else ""
+                // Corrected PID extraction:
+                // If command is like "010C1" (length 5), PID is "0C".
+                // If command is like "010C" (length 4), PID is "0C".
+                // If command is like "03" (length 2), PID is "".
+                val pidHex =
+                    when {
+                        // Check non-AT command explicitly here as AT command could be 5 chars
+                        !isAtCommand && command.length >= 5 ->
+                            command.substring(2, 4) // e.g., from "010C1", take "0C"
+                        !isAtCommand && command.length >= 4 ->
+                            command.substring(2, 4) // e.g., from "010C", take "0C"
+                        // for mode-only commands like "03", pidHex should be empty
+                        // or AT commands that fell through and are not 4/5 chars but >=2
+                        else -> ""
+                    }
 
                 modeHex.toIntOrNull(16)?.let { modeInt ->
                     val responseModeInt =
@@ -198,7 +212,8 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                     success = true
 
                     // Reduced delay to minimum necessary for command processing
-                    delay(50) // Reduced from 100ms
+                    // delay(50) // Reduced from 100ms // Commenting out for faster polling
+                    // experiment
                 } catch (e: IOException) {
                     Log.e(TAG, "Error sending command: ${e.message}")
                     e.printStackTrace()

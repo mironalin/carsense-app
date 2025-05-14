@@ -6,12 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.carsense.features.sensors.domain.model.SensorReading
 import com.carsense.features.sensors.domain.repository.SensorRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.util.LinkedList
-import javax.inject.Inject
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -21,6 +15,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.LinkedList
+import javax.inject.Inject
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.pow
 
 /** Enum defining sensor priority levels */
 enum class SensorPriority {
@@ -34,26 +34,26 @@ data class PrioritizedSensor(val pid: String, val priority: SensorPriority)
 
 /** State container for the Sensors screen */
 data class SensorState(
-        val isLoading: Boolean = false,
-        val error: String? = null,
-        val rpmReading: SensorReading? = null,
-        val speedReading: SensorReading? = null,
-        val coolantTempReading: SensorReading? = null,
-        val intakeAirTempReading: SensorReading? = null,
-        val throttlePositionReading: SensorReading? = null,
-        val fuelLevelReading: SensorReading? = null,
-        val engineLoadReading: SensorReading? = null,
-        val intakeManifoldPressureReading: SensorReading? = null,
-        val timingAdvanceReading: SensorReading? = null,
-        val massAirFlowReading: SensorReading? = null,
-        val isMonitoring: Boolean = false
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val rpmReading: SensorReading? = null,
+    val speedReading: SensorReading? = null,
+    val coolantTempReading: SensorReading? = null,
+    val intakeAirTempReading: SensorReading? = null,
+    val throttlePositionReading: SensorReading? = null,
+    val fuelLevelReading: SensorReading? = null,
+    val engineLoadReading: SensorReading? = null,
+    val intakeManifoldPressureReading: SensorReading? = null,
+    val timingAdvanceReading: SensorReading? = null,
+    val massAirFlowReading: SensorReading? = null,
+    val isMonitoring: Boolean = false
 // Removed refreshRateMs since it's no longer needed
 )
 
 /** ViewModel for the Sensors screen that manages sensor reading states */
 @HiltViewModel
 class SensorViewModel @Inject constructor(private val sensorRepository: SensorRepository) :
-        ViewModel() {
+    ViewModel() {
 
     private val _state = MutableStateFlow(SensorState())
     val state: StateFlow<SensorState> = _state.asStateFlow()
@@ -75,27 +75,27 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
         const val HIGH_PRIORITY_FACTOR = 1.0 // High priority sensors refresh at base rate
         const val MEDIUM_PRIORITY_FACTOR = 2.0 // Medium priority sensors refresh at 2x base rate
         const val LOW_PRIORITY_FACTOR =
-                3.0 // Faster updates for low priority sensors (reduced from 4x)
+            3.0 // Faster updates for low priority sensors (reduced from 4x)
 
         // List of sensors with their priority levels
         val PRIORITIZED_SENSORS =
-                listOf(
-                        // High priority - most frequently updated
-                        PrioritizedSensor(PID_RPM, SensorPriority.HIGH),
-                        PrioritizedSensor(PID_SPEED, SensorPriority.HIGH),
-                        PrioritizedSensor(PID_THROTTLE_POSITION, SensorPriority.HIGH),
+            listOf(
+                // High priority - most frequently updated
+                PrioritizedSensor(PID_RPM, SensorPriority.HIGH),
+                PrioritizedSensor(PID_SPEED, SensorPriority.HIGH),
+                PrioritizedSensor(PID_THROTTLE_POSITION, SensorPriority.HIGH),
 
-                        // Medium priority - regularly updated
-                        PrioritizedSensor(PID_COOLANT_TEMP, SensorPriority.MEDIUM),
-                        PrioritizedSensor(PID_ENGINE_LOAD, SensorPriority.MEDIUM),
-                        PrioritizedSensor(PID_INTAKE_MANIFOLD_PRESSURE, SensorPriority.MEDIUM),
+                // Medium priority - regularly updated
+                PrioritizedSensor(PID_COOLANT_TEMP, SensorPriority.MEDIUM),
+                PrioritizedSensor(PID_ENGINE_LOAD, SensorPriority.MEDIUM),
+                PrioritizedSensor(PID_INTAKE_MANIFOLD_PRESSURE, SensorPriority.MEDIUM),
 
-                        // Low priority - less frequently updated
-                        PrioritizedSensor(PID_INTAKE_AIR_TEMP, SensorPriority.LOW),
-                        PrioritizedSensor(PID_FUEL_LEVEL, SensorPriority.LOW),
-                        PrioritizedSensor(PID_TIMING_ADVANCE, SensorPriority.LOW),
-                        PrioritizedSensor(PID_MAF_RATE, SensorPriority.LOW)
-                )
+                // Low priority - less frequently updated
+                PrioritizedSensor(PID_INTAKE_AIR_TEMP, SensorPriority.LOW),
+                PrioritizedSensor(PID_FUEL_LEVEL, SensorPriority.LOW),
+                PrioritizedSensor(PID_TIMING_ADVANCE, SensorPriority.LOW),
+                PrioritizedSensor(PID_MAF_RATE, SensorPriority.LOW)
+            )
 
         // Helper method to get sensor priority
         fun getSensorPriority(pid: String): SensorPriority {
@@ -120,37 +120,37 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
         // Valid sensor value ranges - minimum values and default maximums
         // Maximum values will be dynamically adjusted based on observed readings
         val SENSOR_MIN_VALUES =
-                mapOf(
-                        PID_RPM to 0.0, // RPM cannot be negative
-                        PID_SPEED to 0.0, // Speed cannot be negative
-                        PID_THROTTLE_POSITION to 0.0, // Throttle position cannot be negative
-                        PID_COOLANT_TEMP to -40.0, // Coolant temp can be negative in cold climates
-                        PID_INTAKE_AIR_TEMP to
-                                -40.0, // Intake air temp can be negative in cold climates
-                        PID_ENGINE_LOAD to 0.0, // Engine load cannot be negative
-                        PID_FUEL_LEVEL to 0.0, // Fuel level cannot be negative
-                        PID_INTAKE_MANIFOLD_PRESSURE to 0.0, // Pressure cannot be negative
-                        PID_TIMING_ADVANCE to
-                                -64.0, // Timing advance can be negative (retarded timing)
-                        PID_MAF_RATE to 0.0 // MAF rate cannot be negative
-                )
+            mapOf(
+                PID_RPM to 0.0, // RPM cannot be negative
+                PID_SPEED to 0.0, // Speed cannot be negative
+                PID_THROTTLE_POSITION to 0.0, // Throttle position cannot be negative
+                PID_COOLANT_TEMP to -40.0, // Coolant temp can be negative in cold climates
+                PID_INTAKE_AIR_TEMP to
+                        -40.0, // Intake air temp can be negative in cold climates
+                PID_ENGINE_LOAD to 0.0, // Engine load cannot be negative
+                PID_FUEL_LEVEL to 0.0, // Fuel level cannot be negative
+                PID_INTAKE_MANIFOLD_PRESSURE to 0.0, // Pressure cannot be negative
+                PID_TIMING_ADVANCE to
+                        -64.0, // Timing advance can be negative (retarded timing)
+                PID_MAF_RATE to 0.0 // MAF rate cannot be negative
+            )
     }
 
     // Track maximum observed values for each sensor to set dynamic limits
     private val maxObservedValues =
-            mutableMapOf<String, Double>().apply {
-                // Initialize with reasonable defaults
-                put(PID_RPM, 10000.0) // High enough for most simulators
-                put(PID_SPEED, 300.0)
-                put(PID_THROTTLE_POSITION, 100.0)
-                put(PID_COOLANT_TEMP, 215.0)
-                put(PID_INTAKE_AIR_TEMP, 215.0)
-                put(PID_ENGINE_LOAD, 100.0)
-                put(PID_FUEL_LEVEL, 100.0)
-                put(PID_INTAKE_MANIFOLD_PRESSURE, 255.0)
-                put(PID_TIMING_ADVANCE, 64.0)
-                put(PID_MAF_RATE, 655.35)
-            }
+        mutableMapOf<String, Double>().apply {
+            // Initialize with reasonable defaults
+            put(PID_RPM, 10000.0) // High enough for most simulators
+            put(PID_SPEED, 300.0)
+            put(PID_THROTTLE_POSITION, 100.0)
+            put(PID_COOLANT_TEMP, 215.0)
+            put(PID_INTAKE_AIR_TEMP, 215.0)
+            put(PID_ENGINE_LOAD, 100.0)
+            put(PID_FUEL_LEVEL, 100.0)
+            put(PID_INTAKE_MANIFOLD_PRESSURE, 255.0)
+            put(PID_TIMING_ADVANCE, 64.0)
+            put(PID_MAF_RATE, 655.35)
+        }
 
     // Maps to store recent readings for smoothing and prediction
     private val rpmHistory = LinkedList<Pair<Long, Double>>()
@@ -221,24 +221,24 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                 // Group sensors by priority
                 val highPrioritySensors = listOf(PID_RPM, PID_SPEED, PID_THROTTLE_POSITION)
                 val mediumPrioritySensors =
-                        listOf(PID_COOLANT_TEMP, PID_ENGINE_LOAD, PID_INTAKE_MANIFOLD_PRESSURE)
+                    listOf(PID_COOLANT_TEMP, PID_ENGINE_LOAD, PID_INTAKE_MANIFOLD_PRESSURE)
                 val lowPrioritySensors =
-                        listOf(
-                                PID_INTAKE_AIR_TEMP,
-                                PID_FUEL_LEVEL,
-                                PID_TIMING_ADVANCE,
-                                PID_MAF_RATE
-                        )
+                    listOf(
+                        PID_INTAKE_AIR_TEMP,
+                        PID_FUEL_LEVEL,
+                        PID_TIMING_ADVANCE,
+                        PID_MAF_RATE
+                    )
 
-                // Use a fixed refresh rate of 600ms instead of the dynamic one
-                val baseRefreshRate = 600L
+                // Use a fixed refresh rate of 1ms instead of the dynamic one
+                val baseRefreshRate = 1L
 
                 // Set up monitoring with prioritization
                 sensorRepository.startPrioritizedMonitoring(
-                        highPrioritySensors,
-                        mediumPrioritySensors,
-                        lowPrioritySensors,
-                        baseRefreshRate
+                    highPrioritySensors,
+                    mediumPrioritySensors,
+                    lowPrioritySensors,
+                    baseRefreshRate
                 )
 
                 // Set up flows to collect readings and update UI state
@@ -268,22 +268,22 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
     private fun setupSensorFlows() {
         // Create a map of all sensor flows for cleaner organization
         val sensorFlows =
-                mapOf(
-                        PID_RPM to sensorRepository.getSensorReadings(PID_RPM),
-                        PID_SPEED to sensorRepository.getSensorReadings(PID_SPEED),
-                        PID_COOLANT_TEMP to sensorRepository.getSensorReadings(PID_COOLANT_TEMP),
-                        PID_INTAKE_AIR_TEMP to
-                                sensorRepository.getSensorReadings(PID_INTAKE_AIR_TEMP),
-                        PID_THROTTLE_POSITION to
-                                sensorRepository.getSensorReadings(PID_THROTTLE_POSITION),
-                        PID_FUEL_LEVEL to sensorRepository.getSensorReadings(PID_FUEL_LEVEL),
-                        PID_ENGINE_LOAD to sensorRepository.getSensorReadings(PID_ENGINE_LOAD),
-                        PID_INTAKE_MANIFOLD_PRESSURE to
-                                sensorRepository.getSensorReadings(PID_INTAKE_MANIFOLD_PRESSURE),
-                        PID_TIMING_ADVANCE to
-                                sensorRepository.getSensorReadings(PID_TIMING_ADVANCE),
-                        PID_MAF_RATE to sensorRepository.getSensorReadings(PID_MAF_RATE)
-                )
+            mapOf(
+                PID_RPM to sensorRepository.getSensorReadings(PID_RPM),
+                PID_SPEED to sensorRepository.getSensorReadings(PID_SPEED),
+                PID_COOLANT_TEMP to sensorRepository.getSensorReadings(PID_COOLANT_TEMP),
+                PID_INTAKE_AIR_TEMP to
+                        sensorRepository.getSensorReadings(PID_INTAKE_AIR_TEMP),
+                PID_THROTTLE_POSITION to
+                        sensorRepository.getSensorReadings(PID_THROTTLE_POSITION),
+                PID_FUEL_LEVEL to sensorRepository.getSensorReadings(PID_FUEL_LEVEL),
+                PID_ENGINE_LOAD to sensorRepository.getSensorReadings(PID_ENGINE_LOAD),
+                PID_INTAKE_MANIFOLD_PRESSURE to
+                        sensorRepository.getSensorReadings(PID_INTAKE_MANIFOLD_PRESSURE),
+                PID_TIMING_ADVANCE to
+                        sensorRepository.getSensorReadings(PID_TIMING_ADVANCE),
+                PID_MAF_RATE to sensorRepository.getSensorReadings(PID_MAF_RATE)
+            )
 
         // Collect from each flow and update state
         sensorFlows.forEach { (pid, flow) ->
@@ -309,7 +309,8 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                 PID_FUEL_LEVEL -> state.copy(fuelLevelReading = smoothedReading)
                 PID_ENGINE_LOAD -> state.copy(engineLoadReading = smoothedReading)
                 PID_INTAKE_MANIFOLD_PRESSURE ->
-                        state.copy(intakeManifoldPressureReading = smoothedReading)
+                    state.copy(intakeManifoldPressureReading = smoothedReading)
+
                 PID_TIMING_ADVANCE -> state.copy(timingAdvanceReading = smoothedReading)
                 PID_MAF_RATE -> state.copy(massAirFlowReading = smoothedReading)
                 else -> state
@@ -327,13 +328,13 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
         // If value is within a reasonable range and higher than current max, update it
         // For RPM specifically, we want to be permissive to capture simulator max values
         val isReasonable =
-                when (pid) {
-                    PID_RPM -> value <= 12000.0 // Allow up to 12000 RPM as a hard ceiling
-                    PID_SPEED -> value <= 400.0 // Allow up to 400 km/h
-                    PID_THROTTLE_POSITION -> value <= 102.0 // Allow slightly over 100%
-                    PID_COOLANT_TEMP -> value <= 220.0 // Allow slightly over normal max
-                    else -> true // For other sensors, be permissive
-                }
+            when (pid) {
+                PID_RPM -> value <= 12000.0 // Allow up to 12000 RPM as a hard ceiling
+                PID_SPEED -> value <= 400.0 // Allow up to 400 km/h
+                PID_THROTTLE_POSITION -> value <= 102.0 // Allow slightly over 100%
+                PID_COOLANT_TEMP -> value <= 220.0 // Allow slightly over normal max
+                else -> true // For other sensors, be permissive
+            }
 
         if (isReasonable && value > currentMax) {
             maxObservedValues[pid] = value + 10.0 // Add a small buffer above the max
@@ -380,19 +381,19 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
 
         // Apply smoothing based on sensor type
         val smoothedValue =
-                when (pid) {
-                    PID_RPM -> smoothValue(validValue, rpmHistory)
-                    PID_SPEED -> smoothValue(validValue, speedHistory)
-                    PID_THROTTLE_POSITION -> smoothValue(validValue, throttleHistory)
-                    PID_COOLANT_TEMP -> smoothValue(validValue, tempHistory)
-                    PID_ENGINE_LOAD -> smoothValue(validValue, loadHistory)
-                    PID_INTAKE_MANIFOLD_PRESSURE -> smoothValue(validValue, pressureHistory)
-                    PID_FUEL_LEVEL -> smoothValue(validValue, fuelHistory)
-                    PID_TIMING_ADVANCE -> smoothValue(validValue, timingHistory)
-                    PID_MAF_RATE -> smoothValue(validValue, airflowHistory)
-                    PID_INTAKE_AIR_TEMP -> smoothValue(validValue, airTempHistory)
-                    else -> validValue
-                }
+            when (pid) {
+                PID_RPM -> smoothValue(validValue, rpmHistory)
+                PID_SPEED -> smoothValue(validValue, speedHistory)
+                PID_THROTTLE_POSITION -> smoothValue(validValue, throttleHistory)
+                PID_COOLANT_TEMP -> smoothValue(validValue, tempHistory)
+                PID_ENGINE_LOAD -> smoothValue(validValue, loadHistory)
+                PID_INTAKE_MANIFOLD_PRESSURE -> smoothValue(validValue, pressureHistory)
+                PID_FUEL_LEVEL -> smoothValue(validValue, fuelHistory)
+                PID_TIMING_ADVANCE -> smoothValue(validValue, timingHistory)
+                PID_MAF_RATE -> smoothValue(validValue, airflowHistory)
+                PID_INTAKE_AIR_TEMP -> smoothValue(validValue, airTempHistory)
+                else -> validValue
+            }
 
         // Only apply smoothing if the difference is reasonable
         return if (abs(smoothedValue - validValue) > getMaxSmoothingDelta(pid)) {
@@ -451,7 +452,7 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
             PID_ENGINE_LOAD -> 10.0 // Increased from 8 to 10% for smoother transitions
             PID_FUEL_LEVEL -> 4.0 // Increased from 3 to 4% for smoother transitions
             PID_INTAKE_MANIFOLD_PRESSURE ->
-                    10.0 // Increased from 8 to 10 kPa for smoother transitions
+                10.0 // Increased from 8 to 10 kPa for smoother transitions
             PID_TIMING_ADVANCE -> 4.0 // Increased from 3 to 4 degrees for smoother transitions
             PID_MAF_RATE -> 10.0 // Increased from 8 to 10 g/s for smoother transitions
             else -> 10.0 // Increased from 8 to 10 for smoother transitions
@@ -466,71 +467,71 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
         interpolationJob?.cancel()
 
         interpolationJob =
-                viewModelScope.launch {
-                    while (isActive && state.value.isMonitoring) {
-                        // Use a standard frame rate that's reliable on most devices
-                        delay(16) // ~60fps for smooth animation
+            viewModelScope.launch {
+                while (isActive && state.value.isMonitoring) {
+                    // Use a standard frame rate that's reliable on most devices
+                    delay(16) // ~60fps for smooth animation
 
-                        try {
-                            // Keep track of which sensors need updates
-                            val updates = mutableMapOf<String, SensorReading>()
+                    try {
+                        // Keep track of which sensors need updates
+                        val updates = mutableMapOf<String, SensorReading>()
 
-                            // Process all sensors in priority order
-                            processRpmAnimation(updates)
-                            processSpeedAnimation(updates)
-                            processGenericSensorAnimation(PID_THROTTLE_POSITION, updates)
-                            processGenericSensorAnimation(PID_COOLANT_TEMP, updates)
-                            processGenericSensorAnimation(PID_ENGINE_LOAD, updates)
-                            processGenericSensorAnimation(PID_INTAKE_MANIFOLD_PRESSURE, updates)
-                            processGenericSensorAnimation(PID_FUEL_LEVEL, updates)
-                            processGenericSensorAnimation(PID_TIMING_ADVANCE, updates)
-                            processGenericSensorAnimation(PID_MAF_RATE, updates)
-                            processGenericSensorAnimation(PID_INTAKE_AIR_TEMP, updates)
+                        // Process all sensors in priority order
+                        processRpmAnimation(updates)
+                        processSpeedAnimation(updates)
+                        processGenericSensorAnimation(PID_THROTTLE_POSITION, updates)
+                        processGenericSensorAnimation(PID_COOLANT_TEMP, updates)
+                        processGenericSensorAnimation(PID_ENGINE_LOAD, updates)
+                        processGenericSensorAnimation(PID_INTAKE_MANIFOLD_PRESSURE, updates)
+                        processGenericSensorAnimation(PID_FUEL_LEVEL, updates)
+                        processGenericSensorAnimation(PID_TIMING_ADVANCE, updates)
+                        processGenericSensorAnimation(PID_MAF_RATE, updates)
+                        processGenericSensorAnimation(PID_INTAKE_AIR_TEMP, updates)
 
-                            // Apply all updates in a single state update
-                            if (updates.isNotEmpty()) {
-                                _state.update { currentState ->
-                                    var newState = currentState
+                        // Apply all updates in a single state update
+                        if (updates.isNotEmpty()) {
+                            _state.update { currentState ->
+                                var newState = currentState
 
-                                    updates[PID_RPM]?.let {
-                                        newState = newState.copy(rpmReading = it)
-                                    }
-                                    updates[PID_SPEED]?.let {
-                                        newState = newState.copy(speedReading = it)
-                                    }
-                                    updates[PID_THROTTLE_POSITION]?.let {
-                                        newState = newState.copy(throttlePositionReading = it)
-                                    }
-                                    updates[PID_COOLANT_TEMP]?.let {
-                                        newState = newState.copy(coolantTempReading = it)
-                                    }
-                                    updates[PID_ENGINE_LOAD]?.let {
-                                        newState = newState.copy(engineLoadReading = it)
-                                    }
-                                    updates[PID_INTAKE_MANIFOLD_PRESSURE]?.let {
-                                        newState = newState.copy(intakeManifoldPressureReading = it)
-                                    }
-                                    updates[PID_FUEL_LEVEL]?.let {
-                                        newState = newState.copy(fuelLevelReading = it)
-                                    }
-                                    updates[PID_TIMING_ADVANCE]?.let {
-                                        newState = newState.copy(timingAdvanceReading = it)
-                                    }
-                                    updates[PID_MAF_RATE]?.let {
-                                        newState = newState.copy(massAirFlowReading = it)
-                                    }
-                                    updates[PID_INTAKE_AIR_TEMP]?.let {
-                                        newState = newState.copy(intakeAirTempReading = it)
-                                    }
-
-                                    newState
+                                updates[PID_RPM]?.let {
+                                    newState = newState.copy(rpmReading = it)
                                 }
+                                updates[PID_SPEED]?.let {
+                                    newState = newState.copy(speedReading = it)
+                                }
+                                updates[PID_THROTTLE_POSITION]?.let {
+                                    newState = newState.copy(throttlePositionReading = it)
+                                }
+                                updates[PID_COOLANT_TEMP]?.let {
+                                    newState = newState.copy(coolantTempReading = it)
+                                }
+                                updates[PID_ENGINE_LOAD]?.let {
+                                    newState = newState.copy(engineLoadReading = it)
+                                }
+                                updates[PID_INTAKE_MANIFOLD_PRESSURE]?.let {
+                                    newState = newState.copy(intakeManifoldPressureReading = it)
+                                }
+                                updates[PID_FUEL_LEVEL]?.let {
+                                    newState = newState.copy(fuelLevelReading = it)
+                                }
+                                updates[PID_TIMING_ADVANCE]?.let {
+                                    newState = newState.copy(timingAdvanceReading = it)
+                                }
+                                updates[PID_MAF_RATE]?.let {
+                                    newState = newState.copy(massAirFlowReading = it)
+                                }
+                                updates[PID_INTAKE_AIR_TEMP]?.let {
+                                    newState = newState.copy(intakeAirTempReading = it)
+                                }
+
+                                newState
                             }
-                        } catch (e: Exception) {
-                            Log.e("SensorViewModel", "Animation error: ${e.message}")
                         }
+                    } catch (e: Exception) {
+                        Log.e("SensorViewModel", "Animation error: ${e.message}")
                     }
                 }
+            }
     }
 
     /** Process RPM animation specifically */
@@ -544,12 +545,12 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
 
         // Initialize current value if needed
         val currentRpm =
-                currentValues[PID_RPM]
-                        ?: run {
-                            val initialValue = reading.value.toDoubleOrNull() ?: targetRpm
-                            currentValues[PID_RPM] = initialValue
-                            initialValue
-                        }
+            currentValues[PID_RPM]
+                ?: run {
+                    val initialValue = reading.value.toDoubleOrNull() ?: targetRpm
+                    currentValues[PID_RPM] = initialValue
+                    initialValue
+                }
 
         // Calculate distance to target
         val distance = targetRpm - currentRpm
@@ -559,10 +560,10 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
             if (currentValues[PID_RPM] != targetRpm) {
                 currentValues[PID_RPM] = targetRpm
                 updates[PID_RPM] =
-                        reading.copy(
-                                value = targetRpm.toInt().toString(),
-                                timestamp = System.currentTimeMillis()
-                        )
+                    reading.copy(
+                        value = targetRpm.toInt().toString(),
+                        timestamp = System.currentTimeMillis()
+                    )
             }
             return
         }
@@ -571,7 +572,7 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
         // For RPM we want faster movement for larger distances
         val baseSpeed = 60.0 // Increased base RPM change per frame
         val speedMultiplier =
-                min(1.0 + (abs(distance) / 500.0), 8.0) // Speed up for larger distances, max 8x
+            min(1.0 + (abs(distance) / 500.0), 8.0) // Speed up for larger distances, max 8x
         val speed = baseSpeed * speedMultiplier
 
         // Calculate new RPM value
@@ -583,10 +584,10 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
 
         // Create new reading with animated value
         updates[PID_RPM] =
-                reading.copy(
-                        value = newRpm.toInt().toString(),
-                        timestamp = System.currentTimeMillis()
-                )
+            reading.copy(
+                value = newRpm.toInt().toString(),
+                timestamp = System.currentTimeMillis()
+            )
     }
 
     /** Process Speed animation specifically */
@@ -600,12 +601,12 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
 
         // Initialize current value if needed
         val currentSpeed =
-                currentValues[PID_SPEED]
-                        ?: run {
-                            val initialValue = reading.value.toDoubleOrNull() ?: targetSpeed
-                            currentValues[PID_SPEED] = initialValue
-                            initialValue
-                        }
+            currentValues[PID_SPEED]
+                ?: run {
+                    val initialValue = reading.value.toDoubleOrNull() ?: targetSpeed
+                    currentValues[PID_SPEED] = initialValue
+                    initialValue
+                }
 
         // Calculate distance to target
         val distance = targetSpeed - currentSpeed
@@ -615,10 +616,10 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
             if (currentValues[PID_SPEED] != targetSpeed) {
                 currentValues[PID_SPEED] = targetSpeed
                 updates[PID_SPEED] =
-                        reading.copy(
-                                value = targetSpeed.toInt().toString(),
-                                timestamp = System.currentTimeMillis()
-                        )
+                    reading.copy(
+                        value = targetSpeed.toInt().toString(),
+                        timestamp = System.currentTimeMillis()
+                    )
             }
             return
         }
@@ -626,7 +627,7 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
         // Speedometers move slowly up and faster down
         val baseSpeed = if (distance > 0) 0.8 else 1.5 // Speed gauge moves slower up than down
         val speedMultiplier =
-                min(1.0 + (abs(distance) / 30.0), 3.0) // Boost for larger changes, max 3x
+            min(1.0 + (abs(distance) / 30.0), 3.0) // Boost for larger changes, max 3x
         val speed = baseSpeed * speedMultiplier
 
         // Calculate new speed value
@@ -638,45 +639,45 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
 
         // Create new reading with animated value
         updates[PID_SPEED] =
-                reading.copy(
-                        value = newSpeed.toInt().toString(),
-                        timestamp = System.currentTimeMillis()
-                )
+            reading.copy(
+                value = newSpeed.toInt().toString(),
+                timestamp = System.currentTimeMillis()
+            )
     }
 
     /** Process animation for other sensors */
     private fun processGenericSensorAnimation(
-            pid: String,
-            updates: MutableMap<String, SensorReading>
+        pid: String,
+        updates: MutableMap<String, SensorReading>
     ) {
         // Get current reading
         val reading =
-                when (pid) {
-                    PID_THROTTLE_POSITION -> state.value.throttlePositionReading
-                    PID_COOLANT_TEMP -> state.value.coolantTempReading
-                    PID_ENGINE_LOAD -> state.value.engineLoadReading
-                    PID_INTAKE_MANIFOLD_PRESSURE -> state.value.intakeManifoldPressureReading
-                    PID_FUEL_LEVEL -> state.value.fuelLevelReading
-                    PID_TIMING_ADVANCE -> state.value.timingAdvanceReading
-                    PID_MAF_RATE -> state.value.massAirFlowReading
-                    PID_INTAKE_AIR_TEMP -> state.value.intakeAirTempReading
-                    else -> null
-                }
-                        ?: return
+            when (pid) {
+                PID_THROTTLE_POSITION -> state.value.throttlePositionReading
+                PID_COOLANT_TEMP -> state.value.coolantTempReading
+                PID_ENGINE_LOAD -> state.value.engineLoadReading
+                PID_INTAKE_MANIFOLD_PRESSURE -> state.value.intakeManifoldPressureReading
+                PID_FUEL_LEVEL -> state.value.fuelLevelReading
+                PID_TIMING_ADVANCE -> state.value.timingAdvanceReading
+                PID_MAF_RATE -> state.value.massAirFlowReading
+                PID_INTAKE_AIR_TEMP -> state.value.intakeAirTempReading
+                else -> null
+            }
+                ?: return
 
         // Get sensor history
         val history =
-                when (pid) {
-                    PID_THROTTLE_POSITION -> throttleHistory
-                    PID_COOLANT_TEMP -> tempHistory
-                    PID_ENGINE_LOAD -> loadHistory
-                    PID_INTAKE_MANIFOLD_PRESSURE -> pressureHistory
-                    PID_FUEL_LEVEL -> fuelHistory
-                    PID_TIMING_ADVANCE -> timingHistory
-                    PID_MAF_RATE -> airflowHistory
-                    PID_INTAKE_AIR_TEMP -> airTempHistory
-                    else -> return
-                }
+            when (pid) {
+                PID_THROTTLE_POSITION -> throttleHistory
+                PID_COOLANT_TEMP -> tempHistory
+                PID_ENGINE_LOAD -> loadHistory
+                PID_INTAKE_MANIFOLD_PRESSURE -> pressureHistory
+                PID_FUEL_LEVEL -> fuelHistory
+                PID_TIMING_ADVANCE -> timingHistory
+                PID_MAF_RATE -> airflowHistory
+                PID_INTAKE_AIR_TEMP -> airTempHistory
+                else -> return
+            }
 
         if (history.isEmpty()) return
 
@@ -686,12 +687,12 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
 
         // Initialize current value if needed
         val currentValue =
-                currentValues[pid]
-                        ?: run {
-                            val initialValue = reading.value.toDoubleOrNull() ?: targetValue
-                            currentValues[pid] = initialValue
-                            initialValue
-                        }
+            currentValues[pid]
+                ?: run {
+                    val initialValue = reading.value.toDoubleOrNull() ?: targetValue
+                    currentValues[pid] = initialValue
+                    initialValue
+                }
 
         // Calculate distance to target
         val distance = targetValue - currentValue
@@ -701,23 +702,23 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
             if (currentValues[pid] != targetValue) {
                 currentValues[pid] = targetValue
                 updates[pid] =
-                        reading.copy(
-                                value = targetValue.toInt().toString(),
-                                timestamp = System.currentTimeMillis()
-                        )
+                    reading.copy(
+                        value = targetValue.toInt().toString(),
+                        timestamp = System.currentTimeMillis()
+                    )
             }
             return
         }
 
         // Get animation parameters based on sensor type
         val (baseSpeed, maxMultiplier) =
-                when (pid) {
-                    PID_THROTTLE_POSITION -> Pair(2.0, 3.0) // Throttle position changes quickly
-                    PID_COOLANT_TEMP -> Pair(0.2, 1.5) // Temperature changes very slowly
-                    PID_INTAKE_AIR_TEMP -> Pair(0.2, 1.5) // Temperature changes very slowly
-                    PID_FUEL_LEVEL -> Pair(0.1, 1.2) // Fuel level changes extremely slowly
-                    else -> Pair(1.0, 2.0) // Default values for other sensors
-                }
+            when (pid) {
+                PID_THROTTLE_POSITION -> Pair(2.0, 3.0) // Throttle position changes quickly
+                PID_COOLANT_TEMP -> Pair(0.2, 1.5) // Temperature changes very slowly
+                PID_INTAKE_AIR_TEMP -> Pair(0.2, 1.5) // Temperature changes very slowly
+                PID_FUEL_LEVEL -> Pair(0.1, 1.2) // Fuel level changes extremely slowly
+                else -> Pair(1.0, 2.0) // Default values for other sensors
+            }
 
         // Calculate animation speed based on distance
         val speedMultiplier = min(1.0 + (abs(distance) / 20.0), maxMultiplier)
@@ -732,10 +733,10 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
 
         // Create new reading with animated value
         updates[pid] =
-                reading.copy(
-                        value = newValue.toInt().toString(),
-                        timestamp = System.currentTimeMillis()
-                )
+            reading.copy(
+                value = newValue.toInt().toString(),
+                timestamp = System.currentTimeMillis()
+            )
     }
 
     /** Add sensor reading to history for smoothing and prediction */
@@ -759,38 +760,47 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                 rpmHistory.add(Pair(timestamp, validatedValue))
                 if (rpmHistory.size > MAX_HISTORY_SIZE) rpmHistory.removeFirst()
             }
+
             PID_SPEED -> {
                 speedHistory.add(Pair(timestamp, validatedValue))
                 if (speedHistory.size > MAX_HISTORY_SIZE) speedHistory.removeFirst()
             }
+
             PID_THROTTLE_POSITION -> {
                 throttleHistory.add(Pair(timestamp, validatedValue))
                 if (throttleHistory.size > MAX_HISTORY_SIZE) throttleHistory.removeFirst()
             }
+
             PID_COOLANT_TEMP -> {
                 tempHistory.add(Pair(timestamp, validatedValue))
                 if (tempHistory.size > MAX_HISTORY_SIZE) tempHistory.removeFirst()
             }
+
             PID_ENGINE_LOAD -> {
                 loadHistory.add(Pair(timestamp, validatedValue))
                 if (loadHistory.size > MAX_HISTORY_SIZE) loadHistory.removeFirst()
             }
+
             PID_INTAKE_MANIFOLD_PRESSURE -> {
                 pressureHistory.add(Pair(timestamp, validatedValue))
                 if (pressureHistory.size > MAX_HISTORY_SIZE) pressureHistory.removeFirst()
             }
+
             PID_FUEL_LEVEL -> {
                 fuelHistory.add(Pair(timestamp, validatedValue))
                 if (fuelHistory.size > MAX_HISTORY_SIZE) fuelHistory.removeFirst()
             }
+
             PID_TIMING_ADVANCE -> {
                 timingHistory.add(Pair(timestamp, validatedValue))
                 if (timingHistory.size > MAX_HISTORY_SIZE) timingHistory.removeFirst()
             }
+
             PID_MAF_RATE -> {
                 airflowHistory.add(Pair(timestamp, validatedValue))
                 if (airflowHistory.size > MAX_HISTORY_SIZE) airflowHistory.removeFirst()
             }
+
             PID_INTAKE_AIR_TEMP -> {
                 airTempHistory.add(Pair(timestamp, validatedValue))
                 if (airTempHistory.size > MAX_HISTORY_SIZE) airTempHistory.removeFirst()
@@ -803,38 +813,38 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
         monitoringRecoveryJob?.cancel()
 
         monitoringRecoveryJob =
-                viewModelScope.launch {
-                    try {
-                        // Wait for sensor readings - if no readings come in for a long period,
-                        // restart
-                        var lastReadingTime = System.currentTimeMillis()
+            viewModelScope.launch {
+                try {
+                    // Wait for sensor readings - if no readings come in for a long period,
+                    // restart
+                    var lastReadingTime = System.currentTimeMillis()
 
-                        while (state.value.isMonitoring) {
-                            delay(5000) // Check every 5 seconds
+                    while (state.value.isMonitoring) {
+                        delay(5000) // Check every 5 seconds
 
-                            // If the last reading is older than 10 seconds, try to restart
-                            // monitoring
-                            val currentTime = System.currentTimeMillis()
-                            val timeSinceLastReading = currentTime - lastReadingTime
+                        // If the last reading is older than 10 seconds, try to restart
+                        // monitoring
+                        val currentTime = System.currentTimeMillis()
+                        val timeSinceLastReading = currentTime - lastReadingTime
 
-                            // Check for fresh readings to determine if we're still getting data
-                            val freshReadings = hasFreshReadings()
+                        // Check for fresh readings to determine if we're still getting data
+                        val freshReadings = hasFreshReadings()
 
-                            if (freshReadings) {
-                                lastReadingTime = currentTime
-                            } else if (timeSinceLastReading > 10000) {
-                                // More than 10 seconds without readings - restart monitoring
-                                restartMonitoring()
-                                lastReadingTime = currentTime
-                            }
+                        if (freshReadings) {
+                            lastReadingTime = currentTime
+                        } else if (timeSinceLastReading > 10000) {
+                            // More than 10 seconds without readings - restart monitoring
+                            restartMonitoring()
+                            lastReadingTime = currentTime
                         }
-                    } catch (e: CancellationException) {
-                        // Normal during shutdown
-                    } catch (e: Exception) {
-                        // Log but don't crash
-                        println("Error in recovery monitoring: ${e.message}")
                     }
+                } catch (e: CancellationException) {
+                    // Normal during shutdown
+                } catch (e: Exception) {
+                    // Log but don't crash
+                    println("Error in recovery monitoring: ${e.message}")
                 }
+            }
     }
 
     /** Check if we have any fresh readings from the critical sensors */
@@ -875,24 +885,24 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
                 // Group sensors by priority
                 val highPrioritySensors = listOf(PID_RPM, PID_SPEED, PID_THROTTLE_POSITION)
                 val mediumPrioritySensors =
-                        listOf(PID_COOLANT_TEMP, PID_ENGINE_LOAD, PID_INTAKE_MANIFOLD_PRESSURE)
+                    listOf(PID_COOLANT_TEMP, PID_ENGINE_LOAD, PID_INTAKE_MANIFOLD_PRESSURE)
                 val lowPrioritySensors =
-                        listOf(
-                                PID_INTAKE_AIR_TEMP,
-                                PID_FUEL_LEVEL,
-                                PID_TIMING_ADVANCE,
-                                PID_MAF_RATE
-                        )
+                    listOf(
+                        PID_INTAKE_AIR_TEMP,
+                        PID_FUEL_LEVEL,
+                        PID_TIMING_ADVANCE,
+                        PID_MAF_RATE
+                    )
 
-                // Use a fixed refresh rate of 600ms
-                val baseRefreshRate = 600L
+                // Use a fixed refresh rate of 1ms
+                val baseRefreshRate = 1L
 
                 // Restart monitoring with the fixed refresh rate
                 sensorRepository.startPrioritizedMonitoring(
-                        highPrioritySensors,
-                        mediumPrioritySensors,
-                        lowPrioritySensors,
-                        baseRefreshRate
+                    highPrioritySensors,
+                    mediumPrioritySensors,
+                    lowPrioritySensors,
+                    baseRefreshRate
                 )
             }
         } catch (e: Exception) {
