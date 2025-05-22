@@ -10,7 +10,6 @@ class CarSenseApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Use fully qualified name, ensure your applicationId is 'com.carsense'
         if (com.carsense.BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
             Timber.d("Timber DebugTree planted.")
