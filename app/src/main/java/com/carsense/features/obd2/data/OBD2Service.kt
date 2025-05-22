@@ -3,6 +3,9 @@ package com.carsense.features.obd2.data
 import android.util.Log
 import com.carsense.features.obd2.domain.constants.OBD2Constants
 import com.carsense.features.sensors.domain.command.RPMCommand
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -10,9 +13,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
-import java.io.IOException
-import java.io.InputStream
-import java.io.OutputStream
 
 /** Service that handles direct communication with the ELM327 OBD2 adapter */
 class OBD2Service(private val inputStream: InputStream, private val outputStream: OutputStream) {
@@ -190,7 +190,7 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                                                 .replace(">", "[PROMPT]")
                                 )
                                 delay(
-                                    20
+                                    1L
                                 ) // Brief pause to allow more data to arrive if stream is active
                                 available = inputStream.available()
                             }
@@ -300,7 +300,7 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
             val commandTimeoutMs =
                 5000L // Timeout for waiting for a response for this specific command
             var elapsedTimeMs = 0L
-            val readDelayMs = 50L // How long to wait between reads if no data
+            val readDelayMs = 5L // How long to wait between reads if no data
 
             while (continueReading && elapsedTimeMs < commandTimeoutMs) {
                 try {
