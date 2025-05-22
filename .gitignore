@@ -22,3 +22,5 @@ ELM327DS.pdf
 .specstory/history/2025-04-28_16-08-untitled.md
 .cursorindexingignore
 SensorImplementationRoadmap.md
+schema/
+.idea/codeStyles/Project.xml
