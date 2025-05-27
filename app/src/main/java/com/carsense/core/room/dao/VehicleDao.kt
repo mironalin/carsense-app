@@ -56,4 +56,7 @@ interface VehicleDao {
         "SELECT EXISTS(SELECT 1 FROM vehicles WHERE vehicle_identification_number = :vin LIMIT 1)"
     )
     suspend fun doesVinExist(vin: String): Boolean
+
+    @Query("SELECT * FROM vehicles ORDER BY local_id DESC LIMIT 1")
+    suspend fun getLatestVehicle(): VehicleEntity?
 }
