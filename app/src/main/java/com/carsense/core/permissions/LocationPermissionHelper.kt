@@ -11,29 +11,23 @@ import androidx.core.content.ContextCompat
 
 object LocationPermissionHelper {
 
-    private val REQUIRED_PERMISSIONS_PRE_Q = arrayOf(
+    private val FOREGROUND_LOCATION_PERMISSIONS = arrayOf(
         Manifest.permission.ACCESS_FINE_LOCATION,
         Manifest.permission.ACCESS_COARSE_LOCATION
     )
 
-    private val REQUIRED_PERMISSIONS_Q_AND_ABOVE = arrayOf(
-        Manifest.permission.ACCESS_FINE_LOCATION,
-        Manifest.permission.ACCESS_COARSE_LOCATION,
-        Manifest.permission.ACCESS_BACKGROUND_LOCATION
-    )
-
-    fun getRequiredPermissions(): Array<String> {
+    // This can be used by an external caller if they specifically want to request all upfront,
+    // but our main flow will be staged.
+    fun getAllPossibleLocationPermissions(): Array<String> {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            REQUIRED_PERMISSIONS_Q_AND_ABOVE
+            FOREGROUND_LOCATION_PERMISSIONS + Manifest.permission.ACCESS_BACKGROUND_LOCATION
         } else {
-            REQUIRED_PERMISSIONS_PRE_Q
+            FOREGROUND_LOCATION_PERMISSIONS
         }
     }
 
-    fun allPermissionsGranted(context: Context): Boolean {
-        return getRequiredPermissions().all {
-            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-        }
+    fun getForegroundLocationPermissions(): Array<String> {
+        return FOREGROUND_LOCATION_PERMISSIONS
     }
 
     fun hasFineLocationPermission(context: Context): Boolean {
@@ -61,6 +55,16 @@ object LocationPermissionHelper {
         }
     }
 
+    fun hasRequiredLocationPermissions(context: Context): Boolean {
+        val hasFineOrCoarse =
+            hasFineLocationPermission(context) || hasCoarseLocationPermission(context)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            return hasFineOrCoarse && hasBackgroundLocationPermission(context)
+        } else {
+            return hasFineOrCoarse
+        }
+    }
+
     fun createPermissionLauncher(
         activity: ComponentActivity,
         onResult: (Map<String, Boolean>) -> Unit
@@ -78,7 +82,8 @@ object LocationPermissionHelper {
     fun requestLocationPermissions(
         launcher: ActivityResultLauncher<Array<String>>
     ) {
-        launcher.launch(getRequiredPermissions())
+        // Now only requests foreground permissions
+        launcher.launch(FOREGROUND_LOCATION_PERMISSIONS)
     }
 
     /**
@@ -102,4 +107,4 @@ object LocationPermissionHelper {
             onResult
         )
     }
-} 
+}

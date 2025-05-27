@@ -87,8 +87,9 @@ class MainActivity : ComponentActivity() {
             insertMockVehicleIfNoneExist()
         }
 
-        // Request Bluetooth permissions on start, location permissions will be requested on BT connect.
+        // Request Bluetooth permissions on start. Location permissions will also be checked now.
         requestBluetoothPermissions()
+        checkAndRequestLocationPermissions() // Request location permissions on startup as well
 
         setContent {
             CarSenseTheme {
@@ -99,8 +100,17 @@ class MainActivity : ComponentActivity() {
                 // Observe Bluetooth connection state to start/stop LocationService
                 LaunchedEffect(bluetoothState.isConnected) {
                     if (bluetoothState.isConnected) {
-                        Timber.d("Bluetooth connected, checking location permissions...")
-                        checkAndRequestLocationPermissions()
+                        // Permissions should have been requested already.
+                        // We just need to ensure they are still granted before starting.
+                        Timber.d("Bluetooth connected, attempting to start LocationService if permissions are granted.")
+                        if (LocationPermissionHelper.hasRequiredLocationPermissions(this@MainActivity)) {
+                            triggerLocationServiceStart()
+                        } else {
+                            // This case should ideally not be hit if permissions were handled on startup.
+                            // But as a fallback, or if permissions were revoked.
+                            Timber.w("Bluetooth connected, but required location permissions are missing. Requesting again.")
+                            checkAndRequestLocationPermissions()
+                        }
                     } else {
                         Timber.d("Bluetooth disconnected, stopping location service...")
                         stopLocationService()
@@ -221,43 +231,88 @@ class MainActivity : ComponentActivity() {
                     permissionsResult[Manifest.permission.ACCESS_COARSE_LOCATION] == true
 
                 if (fineLocationGranted || coarseLocationGranted) {
-                    Timber.d("Fine or Coarse Location permission GRANTED")
+                    Timber.d("Foreground location permission GRANTED (Fine or Coarse)")
+                    // Now that foreground is granted, check and request background if needed
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         if (LocationPermissionHelper.hasBackgroundLocationPermission(this)) {
-                            Timber.d("Background location permission already GRANTED")
-                            triggerLocationServiceStart()
+                            Timber.d("Background location permission was already GRANTED")
+                            // Both foreground and background are now granted, attempt to start service
+                            // This will also be caught by the LaunchedEffect if BT is connected
+                            if (bluetoothAdapter?.isEnabled == true && LocationPermissionHelper.hasRequiredLocationPermissions(
+                                    this
+                                )
+                            ) {
+                                triggerLocationServiceStart()
+                            }
                         } else {
-                            // Now set state to true to show the dialog
+                            Timber.d("Foreground granted, background NOT granted. Showing rationale for background.")
                             showBackgroundRationaleDialogState = true
                         }
                     } else {
-                        triggerLocationServiceStart()
+                        // Pre-Q, foreground grant is enough
+                        Timber.d("Foreground granted (Pre-Q). Attempting to start service.")
+                        // This will also be caught by the LaunchedEffect if BT is connected
+                        if (bluetoothAdapter?.isEnabled == true && LocationPermissionHelper.hasRequiredLocationPermissions(
+                                this
+                            )
+                        ) {
+                            triggerLocationServiceStart()
+                        }
                     }
                 } else {
-                    Timber.w("Fine/Coarse Location permission DENIED")
+                    Timber.w("Foreground Location permission DENIED")
                     // Handle permission denial (e.g., show a message to the user, disable location features)
+                    // You might want to show a dialog explaining why the permission is crucial
                 }
             }
 
         backgroundLocationPermissionLauncher =
             LocationPermissionHelper.createBackgroundPermissionLauncher(this) { isGranted ->
                 if (isGranted) {
-                    Timber.d("Background Location permission GRANTED")
-                    triggerLocationServiceStart()
+                    Timber.d("Background Location permission GRANTED after request")
+                    // Both foreground (previously granted) and background are now granted
+                    // This will also be caught by the LaunchedEffect if BT is connected
+                    if (bluetoothAdapter?.isEnabled == true && LocationPermissionHelper.hasRequiredLocationPermissions(
+                            this
+                        )
+                    ) {
+                        triggerLocationServiceStart()
+                    }
                 } else {
-                    Timber.w("Background Location permission DENIED")
-                    // Handle background permission denial
+                    Timber.w("Background Location permission DENIED after request")
+                    // Handle background permission denial. User might still be able to use app with foreground only.
                 }
             }
     }
 
     private fun checkAndRequestLocationPermissions() {
-        if (LocationPermissionHelper.allPermissionsGranted(this)) {
-            Timber.d("All location permissions already granted.")
-            triggerLocationServiceStart()
+        // Check for foreground permissions first
+        if (LocationPermissionHelper.hasFineLocationPermission(this) || LocationPermissionHelper.hasCoarseLocationPermission(
+                this
+            )
+        ) {
+            Timber.d("Foreground location permission (Fine or Coarse) is already granted.")
+            // If foreground is granted, check for background (if Q+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !LocationPermissionHelper.hasBackgroundLocationPermission(
+                    this
+                )
+            ) {
+                Timber.d("Foreground granted, but Background location permission is NOT granted. Showing rationale.")
+                showBackgroundRationaleDialogState = true
+            } else {
+                // All necessary permissions are already granted (either pre-Q, or Q+ with background)
+                Timber.d("All necessary location permissions (foreground and, if applicable, background) are already granted.")
+                // Attempt to start service if BT is also connected - this check is also in LaunchedEffect
+                if (bluetoothAdapter?.isEnabled == true && LocationPermissionHelper.hasRequiredLocationPermissions(
+                        this
+                    )
+                ) {
+                    triggerLocationServiceStart()
+                }
+            }
         } else {
-            // Explain why you need these permissions (especially ACCESS_BACKGROUND_LOCATION)
-            // For now, directly requesting. In a real app, show rationale for fine/coarse if needed.
+            // Foreground permissions are not granted, request them.
+            Timber.d("Foreground location permissions NOT granted. Requesting them now.")
             LocationPermissionHelper.requestLocationPermissions(locationPermissionsLauncher)
         }
     }
