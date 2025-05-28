@@ -57,6 +57,7 @@ fun AppNavigation(
                     },
                     onLoginClick = onLoginClick,
                     isLoggedIn = authState.isLoggedIn,
+                    userName = if (authState.isLoggedIn) "User" else null,
                     isConnected = bluetoothState.isConnected,
                     deviceName = bluetoothState.connectedDeviceAddress?.let {
                         bluetoothState.pairedDevices.firstOrNull { it.address == bluetoothState.connectedDeviceAddress }?.name
