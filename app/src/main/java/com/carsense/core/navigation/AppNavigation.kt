@@ -14,6 +14,7 @@ import com.carsense.features.bluetooth.presentation.screen.BluetoothDeviceScreen
 import com.carsense.features.bluetooth.presentation.viewmodel.BluetoothViewModel
 import com.carsense.features.dashboard.presentation.screen.DashboardScreen
 import com.carsense.features.dtc.presentation.screen.DTCScreen
+import com.carsense.features.location.presentation.screen.LocationScreen
 import com.carsense.features.sensors.presentation.screen.SensorsScreen
 import com.carsense.features.welcome.presentation.screen.WelcomeScreen
 import timber.log.Timber
@@ -102,7 +103,8 @@ fun AppNavigation(
                     bluetoothViewModel.processIntent(BluetoothIntent.SendCommand(message))
                 },
                 navigateToDTC = { navController.navigate(NavRoutes.DTC) },
-                navigateToSensors = { navController.navigate(NavRoutes.SENSORS) }
+                navigateToSensors = { navController.navigate(NavRoutes.SENSORS) },
+                navigateToLocation = { navController.navigate(NavRoutes.LOCATION) }
             )
         }
 
@@ -120,6 +122,11 @@ fun AppNavigation(
         // Sensors Screen
         animatedComposable(NavRoutes.SENSORS) {
             SensorsScreen(onBackPressed = { navController.navigateUp() })
+        }
+
+        // Location Screen
+        animatedComposable(NavRoutes.LOCATION) {
+            LocationScreen(onBackPressed = { navController.navigateUp() })
         }
 
         // Settings Screen (to be implemented)

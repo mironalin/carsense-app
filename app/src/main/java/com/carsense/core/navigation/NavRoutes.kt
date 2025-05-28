@@ -8,4 +8,5 @@ object NavRoutes {
     const val SETTINGS = "settings"
     const val DTC = "dtc"
     const val SENSORS = "sensors"
+    const val LOCATION = "location"
 }

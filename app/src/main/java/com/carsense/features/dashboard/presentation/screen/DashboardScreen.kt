@@ -36,6 +36,7 @@ import com.composables.icons.lucide.CircleOff
 import com.composables.icons.lucide.Disc
 import com.composables.icons.lucide.Gauge
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.MapPin
 import com.composables.icons.lucide.Moon
 import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.Target
@@ -50,7 +51,8 @@ fun DashboardScreen(
     onDisconnect: () -> Unit,
     onSendCommand: (String) -> Unit,
     navigateToDTC: () -> Unit = {},
-    navigateToSensors: () -> Unit = {}
+    navigateToSensors: () -> Unit = {},
+    navigateToLocation: () -> Unit = {}
 ) {
     // Use explicit primary color for icons to ensure brand consistency
     val iconColor = MaterialTheme.colorScheme.primary
@@ -217,18 +219,18 @@ fun DashboardScreen(
                     )
                 }
 
-                // Parking Brake card
+                // Location card (formerly Parking Brake)
                 FeatureCard(
-                    title = "Parking Brake",
-                    onClick = { /* Open parking brake screen */ },
+                    title = "Location",
+                    onClick = { navigateToLocation() },
                     modifier = Modifier
                         .weight(1f)
                         .aspectRatio(1f),
                     iconColor = iconColor
                 ) {
                     Icon(
-                        imageVector = Lucide.Target,
-                        contentDescription = "Parking Brake",
+                        imageVector = Lucide.MapPin,
+                        contentDescription = "Location",
                         modifier = Modifier.size(64.dp)
                     )
                 }
