@@ -72,6 +72,8 @@ dependencies {
     kapt("androidx.room:room-compiler:2.7.1")
     implementation("androidx.room:room-ktx:2.7.1")
     implementation("com.jakewharton.timber:timber:5.0.1")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("androidx.browser:browser:1.8.0")
 }
 
 kapt {

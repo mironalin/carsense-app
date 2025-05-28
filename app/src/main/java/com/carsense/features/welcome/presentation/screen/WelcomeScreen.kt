@@ -51,6 +51,8 @@ fun WelcomeScreen(
     onConnectClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onDarkModeToggle: () -> Unit,
+    onLoginClick: () -> Unit,
+    isLoggedIn: Boolean = false,
     viewModel: WelcomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -130,6 +132,34 @@ fun WelcomeScreen(
                     )
                 }
 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Login Button (or Logout if logged in)
+                Button(
+                    onClick = {
+                        onLoginClick()
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor =
+                                if (isLoggedIn) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
+                            contentColor =
+                                if (isLoggedIn) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onSecondary
+                        ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Text(
+                        text = if (isLoggedIn) "Logout" else "Login / Register",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = if (isLoggedIn) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onSecondary,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+
                 Spacer(modifier = Modifier.weight(1f))
             }
 
@@ -183,7 +213,9 @@ fun WelcomeScreenPreview() {
             WelcomeScreen(
                 onConnectClick = {},
                 onSettingsClick = {},
-                onDarkModeToggle = {}
+                onDarkModeToggle = {},
+                onLoginClick = {},
+                isLoggedIn = false
             )
         }
     }

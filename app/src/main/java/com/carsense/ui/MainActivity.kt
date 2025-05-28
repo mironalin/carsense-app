@@ -6,10 +6,13 @@ import android.bluetooth.BluetoothManager
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.browser.customtabs.CustomTabsClient
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -26,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,8 +38,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
+import com.carsense.core.auth.AuthManager
+import com.carsense.core.auth.AuthUIEvent
+import com.carsense.core.auth.AuthViewModel
+import com.carsense.core.auth.TokenStorageService
 import com.carsense.core.location.LocationService
 import com.carsense.core.navigation.AppNavigation
 import com.carsense.core.permissions.LocationPermissionHelper
@@ -58,6 +67,15 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var vehicleDao: VehicleDao
 
+    @Inject
+    lateinit var authManager: AuthManager
+
+    @Inject
+    lateinit var tokenStorageService: TokenStorageService
+
+    // Use lateinit var instead of lazy with hiltViewModel()
+    private lateinit var authViewModel: AuthViewModel
+
     private val bluetoothManager by lazy {
         applicationContext.getSystemService(BluetoothManager::class.java)
     }
@@ -76,6 +94,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Initialize the AuthViewModel using ViewModelProvider
+        authViewModel = ViewModelProvider(this)[AuthViewModel::class.java]
+
         // Enable edge-to-edge display
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
@@ -91,11 +112,37 @@ class MainActivity : ComponentActivity() {
         requestBluetoothPermissions()
         checkAndRequestLocationPermissions() // Request location permissions on startup as well
 
+        // Handle incoming auth redirect from onCreate, in case Activity was launched fresh
+        // Ensure intent is not null before calling handleAuthRedirect, which expects a non-null Intent
+        try {
+            val currentIntent = intent // Capture the initial intent
+            if (currentIntent != null &&
+                currentIntent.action == Intent.ACTION_VIEW &&
+                currentIntent.data != null
+            ) {
+                Timber.d("Initial intent has VIEW action, checking for auth callback")
+                handleAuthRedirect(currentIntent)
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error handling initial intent")
+        }
+
         setContent {
             CarSenseTheme {
                 val viewModel = hiltViewModel<BluetoothViewModel>()
                 val navController = rememberNavController()
                 val bluetoothState by viewModel.state.collectAsState()
+
+                // Collect Auth UI Events from AuthViewModel
+                LaunchedEffect(key1 = Unit) { // Use Unit to launch once
+                    authViewModel.uiEvents.collect { event ->
+                        when (event) {
+                            is AuthUIEvent.LaunchLoginFlow -> {
+                                launchAuthFlow() // Call the Activity's method
+                            }
+                        }
+                    }
+                }
 
                 // Observe Bluetooth connection state to start/stop LocationService
                 LaunchedEffect(bluetoothState.isConnected) {
@@ -120,7 +167,14 @@ class MainActivity : ComponentActivity() {
                 // Main app container
                 Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
                     // Use our navigation graph from core
-                    AppNavigation(navController = navController, bluetoothViewModel = viewModel)
+                    val rememberedOnLoginClick =
+                        remember { { authViewModel.handleLoginLogoutClick() } }
+                    AppNavigation(
+                        navController = navController,
+                        bluetoothViewModel = viewModel,
+                        onLoginClick = rememberedOnLoginClick, // Single call to ViewModel
+                        authViewModel = authViewModel // Pass the AuthViewModel to navigation
+                    )
 
                     // Show connection and error states
                     ConnectionStateOverlay(viewModel)
@@ -143,6 +197,112 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // When the activity resumes, explicitly check the login state again.
+        // This can help refresh the UI if it missed an update during a complex lifecycle transition (e.g. returning from browser).
+        Timber.d("MainActivity onResume: Calling authViewModel.checkLoginState()")
+        authViewModel.checkLoginState()
+    }
+
+    // Using public override as ComponentActivity's onNewIntent is public
+    // The intent parameter must be non-nullable to match the superclass
+    public override fun onNewIntent(intent: Intent) { // intent is non-nullable
+        try {
+            Timber.d("onNewIntent called with action: ${intent.action}, data: ${intent.data}")
+            super.onNewIntent(intent)
+            setIntent(intent) // Update the activity's intent.
+
+            // Only process VIEW actions that potentially contain auth data
+            if (intent.action == Intent.ACTION_VIEW && intent.data != null) {
+                handleAuthRedirect(intent)
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error handling new intent")
+            Toast.makeText(
+                this,
+                "Error processing redirect: ${e.message ?: "Unknown error"}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    // Expects a non-nullable Intent that has matched the criteria for an auth callback.
+    private fun handleAuthRedirect(intent: Intent) { // Explicitly non-nullable Intent
+        try {
+            if (intent.action == Intent.ACTION_VIEW) {
+                val data = intent.data
+                if (data != null && "carsense" == data.scheme && "auth-callback" == data.host) {
+                    Timber.d("Auth callback received: $data")
+
+                    // Safely get query parameters
+                    val token = data.getQueryParameter("token")
+                    val receivedState = data.getQueryParameter("state")
+                    val storedState = tokenStorageService.getCsrfState()
+
+                    Timber.d("Auth callback: token=${token != null}, receivedState=${receivedState != null}, storedState=${storedState != null}")
+
+                    if (receivedState == null || token == null) {
+                        Timber.e("Auth callback missing token or state. URI: $intent")
+                        Toast.makeText(
+                            this,
+                            "Login failed: Missing required parameters",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return
+                    }
+                    if (storedState == null) {
+                        Timber.e("Auth callback received, but no stored CSRF state found.")
+                        Toast.makeText(
+                            this,
+                            "Login failed: Authentication state expired",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return
+                    }
+
+                    if (storedState == receivedState) {
+                        Timber.i("CSRF state validated successfully.")
+                        tokenStorageService.saveAuthToken(token)
+                        Timber.i("Auth token saved successfully!")
+                        tokenStorageService.clearCsrfState()
+
+                        // Add visual feedback for successful login
+                        Toast.makeText(
+                            this,
+                            "Login successful! Token received.",
+                            Toast.LENGTH_LONG
+                        ).show()
+
+                        // Log token details (truncated for security)
+                        val truncatedToken = if (token.length > 10)
+                            "${token.take(5)}...${token.takeLast(5)}"
+                        else
+                            "token_too_short"
+                        Timber.d("Auth token received: $token")
+
+                        // Refresh auth state in ViewModel
+                        authViewModel.checkLoginState()
+                    } else {
+                        Timber.e("CSRF state mismatch! Stored: $storedState, Received: $receivedState. Possible CSRF attack.")
+                        Toast.makeText(
+                            this,
+                            "Login failed: Security verification failed",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error processing authentication redirect")
+            Toast.makeText(
+                this,
+                "Login failed: ${e.message ?: "Unknown error"}",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
@@ -366,6 +526,58 @@ class MainActivity : ComponentActivity() {
         // However, if tracking should persist (e.g. user just closed activity but trip is ongoing),
         // then this stop call should be conditional or handled elsewhere (e.g. user action to end trip)
         // stopLocationService()
+    }
+
+    /**
+     * Launches the authentication flow using Chrome Custom Tabs
+     * This needs to be done from an Activity context
+     */
+    private fun launchAuthFlow() {
+        val authUri = authManager.prepareAuthFlow()
+        Timber.d("Launching auth flow with URL: $authUri")
+
+        val customTabsIntentBuilder = CustomTabsIntent.Builder()
+        // You can customize the CCT further here, e.g.:
+        // customTabsIntentBuilder.setToolbarColor(ContextCompat.getColor(this, R.color.your_toolbar_color))
+        // customTabsIntentBuilder.setShowTitle(true)
+        val customTabsIntent = customTabsIntentBuilder.build()
+
+        // Get the package name of a CCT provider
+        val packageName = CustomTabsClient.getPackageName(
+            this,
+            null
+        ) // Pass null for a list of preferred packages to use the default
+
+        if (packageName == null) {
+            Timber.e("No application found to handle Custom Tabs. Falling back to standard browser intent.")
+            // Fallback to a standard browser intent if no CCT handler is found
+            try {
+                val browserIntent = Intent(Intent.ACTION_VIEW, authUri)
+                startActivity(browserIntent)
+            } catch (e: Exception) {
+                Timber.e(e, "Error launching standard browser intent.")
+                Toast.makeText(
+                    this,
+                    "No browser found to handle authentication.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            return
+        }
+
+        // If a CCT handler exists, proceed with launching it
+        customTabsIntent.intent.setPackage(packageName) // Explicitly set the package
+
+        try {
+            customTabsIntent.launchUrl(this, authUri)
+        } catch (e: Exception) {
+            Timber.e(e, "Error launching Custom Chrome Tab for authentication.")
+            Toast.makeText(
+                this,
+                "Could not launch browser for authentication. Error: ${e.localizedMessage}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 }
 

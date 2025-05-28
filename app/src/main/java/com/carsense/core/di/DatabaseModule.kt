@@ -1,6 +1,7 @@
 package com.carsense.core.di
 
 import android.content.Context
+import com.carsense.core.auth.TokenStorageService
 import com.carsense.core.room.AppDatabase
 import com.carsense.core.room.dao.LocationPointDao
 import com.carsense.core.room.dao.VehicleDao
@@ -31,5 +32,11 @@ object DatabaseModule {
     @Singleton
     fun provideLocationPointDao(appDatabase: AppDatabase): LocationPointDao {
         return appDatabase.locationPointDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideTokenStorageService(@ApplicationContext context: Context): TokenStorageService {
+        return TokenStorageService(context)
     }
 }

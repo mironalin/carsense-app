@@ -3,10 +3,12 @@ package com.carsense.core.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import com.carsense.core.auth.AuthViewModel
 import com.carsense.features.bluetooth.presentation.intent.BluetoothIntent
 import com.carsense.features.bluetooth.presentation.screen.BluetoothDeviceScreen
 import com.carsense.features.bluetooth.presentation.viewmodel.BluetoothViewModel
@@ -14,13 +16,20 @@ import com.carsense.features.dashboard.presentation.screen.DashboardScreen
 import com.carsense.features.dtc.presentation.screen.DTCScreen
 import com.carsense.features.sensors.presentation.screen.SensorsScreen
 import com.carsense.features.welcome.presentation.screen.WelcomeScreen
+import timber.log.Timber
 
 @Composable
 fun AppNavigation(
     navController: NavHostController,
-    bluetoothViewModel: BluetoothViewModel = hiltViewModel()
+    bluetoothViewModel: BluetoothViewModel = hiltViewModel(),
+    onLoginClick: () -> Unit,
+    authViewModel: AuthViewModel
 ) {
     val bluetoothState by bluetoothViewModel.state.collectAsState()
+    val authState by authViewModel.state.collectAsState()
+
+    Timber.d("AppNavigation: authState.isLoggedIn = ${authState.isLoggedIn}")
+    Timber.d("AppNavigation: Passing to WelcomeScreen - isLoggedIn = ${authState.isLoggedIn}")
 
     // Handle state-based navigations outside of NavHost
     if (bluetoothState.isConnected &&
@@ -34,18 +43,22 @@ fun AppNavigation(
     NavHost(navController = navController, startDestination = NavRoutes.WELCOME) {
         // Welcome Screen
         animatedComposable(NavRoutes.WELCOME) {
-            WelcomeScreen(
-                onConnectClick = {
-                    // Use single top to avoid duplicating screens in backstack
-                    navController.navigateSingleTop(NavRoutes.DEVICE_LIST)
-                },
-                onSettingsClick = {
-                    // Will implement settings navigation later
-                },
-                onDarkModeToggle = {
-                    // Will implement theme toggle later
-                }
-            )
+            key(authState.isLoggedIn) {
+                WelcomeScreen(
+                    onConnectClick = {
+                        // Use single top to avoid duplicating screens in backstack
+                        navController.navigateSingleTop(NavRoutes.DEVICE_LIST)
+                    },
+                    onSettingsClick = {
+                        // Will implement settings navigation later
+                    },
+                    onDarkModeToggle = {
+                        // Will implement theme toggle later
+                    },
+                    onLoginClick = onLoginClick,
+                    isLoggedIn = authState.isLoggedIn
+                )
+            }
         }
 
         // Device List Screen
