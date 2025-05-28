@@ -140,6 +140,9 @@ class MainActivity : ComponentActivity() {
                             is AuthUIEvent.LaunchLoginFlow -> {
                                 launchAuthFlow() // Call the Activity's method
                             }
+                            is AuthUIEvent.ShowToast -> {
+                                Toast.makeText(this@MainActivity, event.message, Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 }

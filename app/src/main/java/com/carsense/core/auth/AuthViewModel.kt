@@ -16,11 +16,13 @@ import javax.inject.Inject
 
 data class AuthState(
     val isLoggedIn: Boolean = false,
-    val token: String? = null
+    val token: String? = null,
+    val isLoading: Boolean = false // To indicate ongoing auth operations
 )
 
 sealed class AuthUIEvent {
     object LaunchLoginFlow : AuthUIEvent()
+    data class ShowToast(val message: String) : AuthUIEvent()
 }
 
 @HiltViewModel
@@ -41,9 +43,10 @@ class AuthViewModel @Inject constructor(
 
     fun checkLoginState() {
         viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
             val token = tokenStorageService.getAuthToken()
             val loggedIn = token != null
-            _state.update { it.copy(isLoggedIn = loggedIn, token = token) }
+            _state.update { it.copy(isLoggedIn = loggedIn, token = token, isLoading = false) }
             Timber.d("AuthViewModel: checkLoginState - isLoggedIn: $loggedIn")
         }
     }
@@ -51,9 +54,14 @@ class AuthViewModel @Inject constructor(
     fun handleLoginLogoutClick() {
         viewModelScope.launch {
             if (_state.value.isLoggedIn) {
-                authManager.logout()
-                _state.update { it.copy(isLoggedIn = false, token = null) }
-                Timber.d("AuthViewModel: Logout processed.")
+                _state.update { it.copy(isLoading = true) }
+                val serverLogoutSuccess = authManager.logout() // Calls the new suspend function
+                if (!serverLogoutSuccess) {
+                    _uiEvents.emit(AuthUIEvent.ShowToast("Logout from server failed. Logged out locally."))
+                }
+                // AuthManager.logout() already clears local tokens via logoutFromDeviceOnly()
+                _state.update { it.copy(isLoggedIn = false, token = null, isLoading = false) }
+                Timber.d("AuthViewModel: Logout processed. Server success: $serverLogoutSuccess")
             } else {
                 // Not logged in, trigger UI event to launch login flow
                 _uiEvents.emit(AuthUIEvent.LaunchLoginFlow)
@@ -66,9 +74,13 @@ class AuthViewModel @Inject constructor(
     fun logout() {
         viewModelScope.launch {
             if (_state.value.isLoggedIn) { // Ensure we only logout if actually logged in
-                authManager.logout()
-                _state.update { it.copy(isLoggedIn = false, token = null) }
-                Timber.d("AuthViewModel: Direct logout processed.")
+                _state.update { it.copy(isLoading = true) }
+                val serverLogoutSuccess = authManager.logout()
+                if (!serverLogoutSuccess) {
+                    _uiEvents.emit(AuthUIEvent.ShowToast("Logout from server failed. Logged out locally."))
+                }
+                _state.update { it.copy(isLoggedIn = false, token = null, isLoading = false) }
+                Timber.d("AuthViewModel: Direct logout processed. Server success: $serverLogoutSuccess")
             }
         }
     }
