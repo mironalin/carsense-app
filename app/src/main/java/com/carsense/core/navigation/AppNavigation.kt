@@ -31,14 +31,8 @@ fun AppNavigation(
     Timber.d("AppNavigation: authState.isLoggedIn = ${authState.isLoggedIn}")
     Timber.d("AppNavigation: Passing to WelcomeScreen - isLoggedIn = ${authState.isLoggedIn}")
 
-    // Handle state-based navigations outside of NavHost
-    if (bluetoothState.isConnected &&
-        navController.currentDestination?.route != NavRoutes.DASHBOARD &&
-        navController.currentDestination?.route != NavRoutes.DTC &&
-        navController.currentDestination?.route != NavRoutes.SENSORS
-    ) {
-        navController.navigateAndClearBackStack(NavRoutes.DASHBOARD)
-    }
+    // We are removing the automatic navigation to dashboard when connected
+    // to allow users to stay on the welcome screen if desired
 
     NavHost(navController = navController, startDestination = NavRoutes.WELCOME) {
         // Welcome Screen
@@ -49,6 +43,12 @@ fun AppNavigation(
                         // Use single top to avoid duplicating screens in backstack
                         navController.navigateSingleTop(NavRoutes.DEVICE_LIST)
                     },
+                    onDisconnectClick = {
+                        bluetoothViewModel.processIntent(BluetoothIntent.DisconnectFromDevice)
+                    },
+                    onDashboardClick = {
+                        navController.navigateSingleTop(NavRoutes.DASHBOARD)
+                    },
                     onSettingsClick = {
                         // Will implement settings navigation later
                     },
@@ -56,7 +56,13 @@ fun AppNavigation(
                         // Will implement theme toggle later
                     },
                     onLoginClick = onLoginClick,
-                    isLoggedIn = authState.isLoggedIn
+                    isLoggedIn = authState.isLoggedIn,
+                    isConnected = bluetoothState.isConnected,
+                    deviceName = bluetoothState.connectedDeviceAddress?.let {
+                        bluetoothState.pairedDevices.firstOrNull { it.address == bluetoothState.connectedDeviceAddress }?.name
+                            ?: bluetoothState.scannedDevices.firstOrNull { it.address == bluetoothState.connectedDeviceAddress }?.name
+                            ?: bluetoothState.connectedDeviceAddress
+                    }
                 )
             }
         }
@@ -72,6 +78,8 @@ fun AppNavigation(
                 onStopScan = { bluetoothViewModel.processIntent(BluetoothIntent.StopScan) },
                 onDeviceClick = { device ->
                     bluetoothViewModel.processIntent(BluetoothIntent.ConnectToDevice(device))
+                    // Navigate back to welcome screen after connecting
+                    navController.navigateUp()
                 },
                 onBackPressed = {
                     // Clean navigation back to previous screen
