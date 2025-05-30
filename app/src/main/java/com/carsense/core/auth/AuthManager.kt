@@ -1,6 +1,7 @@
 package com.carsense.core.auth
 
 // import dagger.hilt.android.scopes.ActivityScoped // Or Singleton if using ApplicationContext - REMOVED
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
 import com.carsense.core.network.AuthApiService // Import the service
@@ -10,6 +11,7 @@ import java.security.SecureRandom
 import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
+
 // HttpURLConnection and related imports are no longer needed here for logout
 // import java.net.HttpURLConnection
 // import java.net.URL
@@ -30,6 +32,7 @@ class AuthManager @Inject constructor(
 
     companion object {
         private const val AUTH_BASE_URL = "https://api.carsense.workers.dev/api/android-auth"
+
         // API_BASE_URL is now configured in NetworkModule for Retrofit
         private const val REDIRECT_URI = "carsense://auth-callback"
     }
@@ -85,6 +88,61 @@ class AuthManager @Inject constructor(
         }
     }
 
+    /**
+     * Fetches the current session details including user information from the API.
+     * @return The SessionResponse containing user details if successful, null otherwise
+     */
+    suspend fun fetchSessionDetails(): com.carsense.core.network.SessionResponse? {
+        val token = tokenStorageService.getAuthToken()
+        if (token == null) {
+            Timber.d("No auth token found, cannot fetch session details.")
+            return null
+        }
+
+        return try {
+            val response = authApiService.getSession()
+
+            if (response.isSuccessful) {
+                val sessionResponse = response.body()
+                if (sessionResponse != null) {
+                    // Log detailed session info
+                    Timber.i("=========== SESSION DATA ===========")
+                    Timber.i("Session ID: ${sessionResponse.session.id}")
+                    Timber.i("Expires At: ${sessionResponse.session.expiresAt}")
+                    Timber.i("Created At: ${sessionResponse.session.createdAt}")
+                    Timber.i("Updated At: ${sessionResponse.session.updatedAt}")
+                    Timber.i("IP Address: ${sessionResponse.session.ipAddress ?: "N/A"}")
+                    Timber.i("User Agent: ${sessionResponse.session.userAgent ?: "N/A"}")
+
+                    // Log detailed user info
+                    Timber.i("=========== USER DATA ===========")
+                    Timber.i("User ID: ${sessionResponse.user.id}")
+                    Timber.i("Name: ${sessionResponse.user.name ?: "N/A"}")
+                    Timber.i("Email: ${sessionResponse.user.email}")
+                    Timber.i("Email Verified: ${sessionResponse.user.emailVerified}")
+                    Timber.i("Role: ${sessionResponse.user.role ?: "N/A"}")
+                    Timber.i("Profile Image: ${sessionResponse.user.image ?: "N/A"}")
+                    Timber.i("User Created At: ${sessionResponse.user.createdAt}")
+                    Timber.i("User Updated At: ${sessionResponse.user.updatedAt}")
+                    Timber.i("==================================")
+
+                    sessionResponse
+                } else {
+                    Timber.e("Session response body was null despite successful response")
+                    null
+                }
+            } else {
+                val errorBody = response.errorBody()?.string() ?: "No error body"
+                Timber.e("Failed to fetch session details. Code: ${response.code()}, Message: ${response.message()}, ErrorBody: $errorBody")
+                null
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Exception during session details fetch: ${e.message}")
+            null
+        }
+    }
+
+    @SuppressLint("NewApi")
     fun generateSecureRandomState(): String {
         val random = SecureRandom()
         val bytes = ByteArray(32)

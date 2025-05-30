@@ -17,6 +17,8 @@ import javax.inject.Inject
 data class AuthState(
     val isLoggedIn: Boolean = false,
     val token: String? = null,
+    val userName: String? = null,
+    val userEmail: String? = null,
     val isLoading: Boolean = false // To indicate ongoing auth operations
 )
 
@@ -48,6 +50,34 @@ class AuthViewModel @Inject constructor(
             val loggedIn = token != null
             _state.update { it.copy(isLoggedIn = loggedIn, token = token, isLoading = false) }
             Timber.d("AuthViewModel: checkLoginState - isLoggedIn: $loggedIn")
+
+            // If logged in, fetch user details
+            if (loggedIn) {
+                fetchSessionDetails()
+            }
+        }
+    }
+
+    /**
+     * Fetches session details including user information from the server
+     */
+    fun fetchSessionDetails() {
+        viewModelScope.launch {
+            try {
+                val sessionResponse = authManager.fetchSessionDetails()
+                if (sessionResponse != null) {
+                    _state.update {
+                        it.copy(
+                            userName = sessionResponse.user.name,
+                            userEmail = sessionResponse.user.email
+                        )
+                    }
+                    Timber.d("AuthViewModel: Updated user details - name: ${sessionResponse.user.name}, email: ${sessionResponse.user.email}")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error fetching session details")
+                // Don't update UI state on error, keep existing values
+            }
         }
     }
 
@@ -60,7 +90,15 @@ class AuthViewModel @Inject constructor(
                     _uiEvents.emit(AuthUIEvent.ShowToast("Logout from server failed. Logged out locally."))
                 }
                 // AuthManager.logout() already clears local tokens via logoutFromDeviceOnly()
-                _state.update { it.copy(isLoggedIn = false, token = null, isLoading = false) }
+                _state.update {
+                    it.copy(
+                        isLoggedIn = false,
+                        token = null,
+                        userName = null,
+                        userEmail = null,
+                        isLoading = false
+                    )
+                }
                 Timber.d("AuthViewModel: Logout processed. Server success: $serverLogoutSuccess")
             } else {
                 // Not logged in, trigger UI event to launch login flow
@@ -79,9 +117,30 @@ class AuthViewModel @Inject constructor(
                 if (!serverLogoutSuccess) {
                     _uiEvents.emit(AuthUIEvent.ShowToast("Logout from server failed. Logged out locally."))
                 }
-                _state.update { it.copy(isLoggedIn = false, token = null, isLoading = false) }
+                _state.update {
+                    it.copy(
+                        isLoggedIn = false,
+                        token = null,
+                        userName = null,
+                        userEmail = null,
+                        isLoading = false
+                    )
+                }
                 Timber.d("AuthViewModel: Direct logout processed. Server success: $serverLogoutSuccess")
             }
+        }
+    }
+
+    /**
+     * Refreshes user details by fetching the latest session data.
+     * This can be called manually when needed, such as when resuming the app.
+     */
+    fun refreshUserDetails() {
+        Timber.d("Manual refresh of user details requested")
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            fetchSessionDetails()
+            _state.update { it.copy(isLoading = false) }
         }
     }
 }
