@@ -296,7 +296,15 @@ class BluetoothViewModel @Inject constructor(private val bluetoothController: Bl
             try {
                 // Determine if it's an AT command or OBD2 command
                 // Basic heuristic: AT commands start with "AT"
-                val responseFlow = if (message.uppercase().startsWith("AT")) {
+                val isAtCommand = message.uppercase().startsWith("AT")
+
+                // If sending an AT command, add a delay to ensure the adapter has time to process
+                // This is especially important right after establishing a connection
+                // if (isAtCommand) {
+                //     delay(2000) // 2-second delay before sending AT commands
+                // }
+
+                val responseFlow = if (isAtCommand) {
                     obd2Service.executeAtCommand(message)
                 } else {
                     obd2Service.executeOBD2Command(message)

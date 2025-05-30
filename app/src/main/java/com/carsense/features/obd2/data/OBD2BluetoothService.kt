@@ -80,18 +80,13 @@ class OBD2BluetoothService(
      * retries.
      * 3. Retrieves the input and output streams from the socket.
      * 4. Creates an instance of [OBD2Service] using these streams.
-     * 5. Calls [OBD2Service.initialize()] to perform the basic ELM327 adapter initialization (e.g.,
-     * ATZ, ATE0).
-     * 6. Calls [optimizeAdapterSettings()] to apply further performance-enhancing AT commands.
+     * 5. Initializes the adapter with optimized settings for better performance.
      *
      * The entire process (socket connection, stream retrieval, OBD2Service initialization) is
      * retried up to [MAX_CONNECTION_ATTEMPTS] times upon failure, with a delay of
      * [CONNECTION_RETRY_DELAY] between attempts.
      *
-     * @return `true` if all initialization steps, including adapter optimization (if successful),
-     * are completed. Returns `false` if any critical step fails after all retry attempts. Note: A
-     * failure in [optimizeAdapterSettings] is logged but does not cause this method to return
-     * `false` if the basic [OBD2Service.initialize()] was successful.
+     * @return `true` if all initialization steps are completed. Returns `false` if any critical step fails after all retry attempts.
      */
     @SuppressLint("MissingPermission")
     suspend fun initialize(): Boolean {
@@ -174,25 +169,20 @@ class OBD2BluetoothService(
                         }
                     }
 
-                    // Initialize the OBD2 adapter with reduced timeout
+                    // Initialize the OBD2 adapter with all optimized settings
                     try {
-                        // Wait less time before initializing
+                        // Wait before initializing
                         delay(800)
 
-                        // Initial initialization
-                        val initResult = obd2Service?.initialize() ?: false
+                        // Let the service initialize the adapter with optimized settings
+                        val initResult = obd2Service?.initializeWithOptimizedSettings() ?: false
 
                         if (initResult) {
-                            Log.d(TAG, "OBD2 basic initialization successful")
+                            Log.d(TAG, "OBD2 initialization with optimized settings successful")
 
-                            // Apply additional performance optimizations to the adapter
-                            try {
-                                optimizeAdapterSettings()
-                                Log.d(TAG, "Applied performance optimizations to OBD adapter")
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Failed to optimize adapter settings: ${e.message}")
-                                // Continue anyway as basic initialization succeeded
-                            }
+                            // Give the adapter time to fully stabilize after initialization
+                            Log.d(TAG, "Waiting for adapter to stabilize before proceeding...")
+                            delay(2000)
 
                             isInitialized = true
                             return@withContext true
@@ -236,78 +226,6 @@ class OBD2BluetoothService(
 
             // If we get here, all attempts failed
             false
-        }
-    }
-
-    /** Applies optimized settings to the ELM327 adapter for faster communication */
-    private suspend fun optimizeAdapterSettings() {
-        obd2Service?.let { service ->
-            // Reset the adapter first
-            service.sendCommand("ATZ")
-            delay(1000) // Need longer delay after reset
-
-            // Turn echo off - reduces unnecessary data
-            service.sendCommand("ATE0")
-            delay(100)
-
-            // Set timeout to a shorter value (25ms × 4 = ~100ms)
-            // This reduces wait time for each command
-            service.sendCommand("ATST19")
-            delay(100)
-
-            // Set line feeds off to reduce data overhead
-            service.sendCommand("ATL0")
-            delay(100)
-
-            // Turn spaces off - reduces unnecessary data
-            service.sendCommand("ATS0")
-            delay(100)
-
-            // Make sure headers are ON - critical for ECU communication
-            service.sendCommand("ATH1")
-            delay(100)
-
-            // Set adaptive timing to mode 1 (moderate)
-            // Mode 2 can sometimes cause missed responses
-            service.sendCommand("ATAT1")
-            delay(100)
-
-            // Set faster baud rate if supported (38400)
-            service.sendCommand("ATBRD 6D")
-            delay(200)
-
-            // Set protocol timeout multiplier to a lower value
-            service.sendCommand("ATCTM1")
-            delay(100)
-
-            // Reduce inter-message spacing for faster responses
-            service.sendCommand("ATIMS0")
-            delay(100)
-
-            // Set larger receive buffer size if supported
-            service.sendCommand("ATBRT FF")
-            delay(100)
-
-            // Set response frames
-            service.sendCommand("ATR1")
-            delay(100)
-
-            // Try using a fixed CAN protocol rather than auto if the device supports CAN
-            // Protocol 6 is ISO 15765-4 CAN (11 bit ID, 500 kbaud)
-            // service.sendCommand("ATSP6")
-            // delay(200)
-
-            // Double-check headers are still ON
-            service.sendCommand("ATH1")
-            delay(100)
-
-            // Skip the leadup messages in responses (mode 2 is show only DLC+data)
-            service.sendCommand("ATD2")
-            delay(100)
-
-            // Send a command to verify everything is working
-            service.sendCommand("0100")
-            delay(200)
         }
     }
 

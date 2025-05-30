@@ -3,9 +3,6 @@ package com.carsense.features.obd2.data
 import android.util.Log
 import com.carsense.features.obd2.domain.constants.OBD2Constants
 import com.carsense.features.sensors.domain.command.RPMCommand
-import java.io.IOException
-import java.io.InputStream
-import java.io.OutputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -13,6 +10,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 
 /** Service that handles direct communication with the ELM327 OBD2 adapter */
 class OBD2Service(private val inputStream: InputStream, private val outputStream: OutputStream) {
@@ -553,14 +553,14 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
     }
 
     /**
-     * Initializes the OBD2 adapter with a sequence of setup AT commands. This typically includes
-     * resetting the adapter, turning echo off, setting automatic protocol detection, etc.
+     * Initializes the OBD2 adapter with optimized settings in a single sequence.
+     * This method combines both basic initialization and performance optimizations.
      *
      * @return True if initialization sequence was sent successfully, false otherwise.
      */
-    suspend fun initialize(): Boolean {
+    suspend fun initializeWithOptimizedSettings(): Boolean {
         return withContext(Dispatchers.IO) {
-            Log.d(TAG, "Starting ELM327 initialization")
+            Log.d(TAG, "Starting comprehensive ELM327 initialization")
             var success = false
 
             try {
@@ -573,63 +573,93 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                 // Attempt ELM327 initialization sequence
                 try {
                     // Shorter wait before initializing
-                    delay(1000) // Reduced from 2000ms
+                    delay(1000)
 
-                    // Send a few carriage returns to reset any pending command from the ELM327.
-                    for (i in 1..2) { // Reduced from 3 to 2
+                    // Send a couple of carriage returns to reset any pending command
+                    for (i in 1..2) {
                         outputStream.write(CR.toByteArray())
                         outputStream.flush()
-                        delay(100) // Reduced from 200ms
+                        delay(200)
                     }
 
-                    // Reset the ELM327 to its default state.
+                    // Reset the ELM327 to its default state
                     Log.d(TAG, "Sending reset command")
-                    success = sendCommand(OBD2Constants.RESET_COMMAND)
+                    success = sendCommand(OBD2Constants.RESET_COMMAND) // ATZ
                     if (!success) {
                         Log.e(TAG, "Reset command failed")
                         return@withContext false
                     }
-                    delay(1500) // Reduced from 2000ms but still need enough time for reset
+                    delay(1500) // Need enough time after reset
 
-                    // Use a combined command string for faster setup
-                    val setupCommands =
-                        listOf(
-                            OBD2Constants.ECHO_OFF_COMMAND,
-                            OBD2Constants.LINEFEED_OFF_COMMAND,
-                            OBD2Constants.HEADER_ON_COMMAND,
-                            OBD2Constants.SPACES_OFF_COMMAND
-                        )
+                    // Essential setup commands
+                    val setupCommands = listOf(
+                        OBD2Constants.ECHO_OFF_COMMAND,      // ATE0
+                        OBD2Constants.LINEFEED_OFF_COMMAND,  // ATL0
+                        OBD2Constants.HEADER_ON_COMMAND,     // ATH1
+                        OBD2Constants.SPACES_OFF_COMMAND     // ATS0
+                    )
 
-                    // Send essential setup commands with minimal delay between them.
-                    // These commands configure the ELM327 for optimal communication.
+                    // Send essential setup commands
                     for (cmd in setupCommands) {
                         success = sendCommand(cmd)
                         if (!success) {
                             Log.w(TAG, "Setup command $cmd failed, continuing anyway")
                         }
-                        delay(150) // Reduced from 300ms
+                        delay(300) // Enough time between commands
                     }
 
-                    // Set protocol to auto-detect. ELM327 will try various protocols to connect to
-                    // the vehicle.
+                    // Performance optimization commands
+                    val optimizationCommands = listOf(
+                        "ATST19",    // Set timeout to a shorter value (25ms × 4 = ~100ms)
+                        "ATAT1",     // Set adaptive timing to mode 1 (moderate)
+                        "ATBRD 6D",  // Set faster baud rate if supported (38400)
+                        "ATCTM1",    // Set protocol timeout multiplier to a lower value
+                        "ATIMS0",    // Reduce inter-message spacing for faster responses
+                        "ATBRT FF",  // Set larger receive buffer size if supported
+                        "ATR1",      // Set response frames
+                        "ATD2"       // Skip the leadup messages in responses
+                    )
+
+                    // Send optimization commands
+                    for (cmd in optimizationCommands) {
+                        success = sendCommand(cmd)
+                        if (!success) {
+                            Log.w(TAG, "Optimization command $cmd failed, continuing anyway")
+                        }
+                        delay(300) // Enough time between commands
+                    }
+
+                    // Set protocol to auto-detect
                     Log.d(TAG, "Setting protocol to auto")
-                    success = sendCommand(OBD2Constants.PROTOCOL_AUTO_COMMAND)
+                    success = sendCommand(OBD2Constants.PROTOCOL_AUTO_COMMAND) // ATSP0
                     if (!success) {
                         Log.e(TAG, "Auto protocol command failed")
                         return@withContext false
                     }
-                    delay(300) // Need more time for protocol setting
+                    delay(300)
 
-                    // Allow long messages, important for multi-frame responses (e.g., VIN, some DTC
-                    // lists).
+                    // Allow long messages
                     Log.d(TAG, "Allowing long messages")
-                    success = sendCommand(OBD2Constants.LONG_MESSAGES_COMMAND)
+                    success = sendCommand(OBD2Constants.LONG_MESSAGES_COMMAND) // ATAL
                     if (!success) {
                         Log.w(TAG, "Long messages command failed, continuing anyway")
                     }
+                    delay(300)
 
-                    Log.d(TAG, "ELM327 initialization complete")
-                    isConnected = true // Explicitly mark as connected after successful init
+                    // Verify the connection with a basic test command
+                    success = sendCommand("0100") // Mode 01 PID 00 (supported PIDs)
+                    if (!success) {
+                        Log.w(TAG, "Test command 0100 failed, continuing anyway")
+                    }
+                    delay(500)
+
+                    Log.d(TAG, "Complete ELM327 initialization successful")
+
+                    // Final delay to ensure adapter is fully stabilized before returning
+                    Log.d(TAG, "Waiting for adapter to finalize all settings...")
+                    delay(2000)
+
+                    isConnected = true
                     return@withContext true
                 } catch (e: Exception) {
                     Log.e(TAG, "Initialization exception: ${e.message}")
@@ -644,6 +674,22 @@ class OBD2Service(private val inputStream: InputStream, private val outputStream
                 return@withContext false
             }
         }
+    }
+
+    /**
+     * Initializes the OBD2 adapter with a sequence of setup AT commands.
+     *
+     * @return True if initialization sequence was sent successfully, false otherwise.
+     * @deprecated Use initializeWithOptimizedSettings() instead as it combines basic initialization
+     * and performance optimizations in a single sequence.
+     */
+    @Deprecated(
+        "Use initializeWithOptimizedSettings() for better performance",
+        ReplaceWith("initializeWithOptimizedSettings()")
+    )
+    suspend fun initialize(): Boolean {
+        Log.d(TAG, "initialize() called - delegating to initializeWithOptimizedSettings()")
+        return initializeWithOptimizedSettings()
     }
 
     /**
