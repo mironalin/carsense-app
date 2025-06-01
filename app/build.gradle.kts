@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("kotlin-kapt")
     id("com.google.dagger.hilt.android")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -24,8 +25,7 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             )
         }
     }
@@ -43,6 +43,13 @@ android {
 }
 
 dependencies {
+    kapt(libs.hilt.android.compiler)
+    ksp(libs.androidx.room.compiler)
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -55,30 +62,24 @@ dependencies {
     implementation(libs.androidx.navigation.runtime.ktx)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.play.services.location)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
+    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.icons.lucide)
+    implementation(libs.hilt.android)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.material)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    implementation(libs.timber)
+    implementation(libs.androidx.security.crypto)
+    implementation(libs.androidx.browser)
+    implementation(libs.retrofit)
+    implementation(libs.converter.moshi)
+    implementation(libs.moshi.kotlin)
+    implementation(libs.okhttp)
+    implementation(libs.logging.interceptor)
+    implementation(libs.androidx.datastore.preferences)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-    implementation("com.composables:icons-lucide:1.0.0")
-    implementation("com.google.dagger:hilt-android:2.56.1")
-    implementation("androidx.navigation:navigation-compose:2.7.7")
-    implementation("com.google.android.material:material:1.9.0")
-    kapt("com.google.dagger:hilt-android-compiler:2.56.1")
-    implementation("androidx.room:room-runtime:2.7.1")
-    kapt("androidx.room:room-compiler:2.7.1")
-    implementation("androidx.room:room-ktx:2.7.1")
-    implementation("com.jakewharton.timber:timber:5.0.1")
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
-    implementation("androidx.browser:browser:1.8.0")
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-moshi:2.9.0")
-    implementation("com.squareup.moshi:moshi-kotlin:1.15.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 }
 
 kapt {
