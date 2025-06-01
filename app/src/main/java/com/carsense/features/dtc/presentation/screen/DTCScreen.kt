@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Refresh
@@ -29,7 +28,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -47,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carsense.features.dtc.presentation.viewmodel.DTCViewModel
+import com.carsense.features.welcome.presentation.components.BackButton
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.PlugZap
 import com.composables.icons.lucide.Trash
@@ -62,22 +61,15 @@ fun DTCScreen(
     val state by viewModel.state.collectAsState()
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
+        containerColor = MaterialTheme.colorScheme.background, topBar = {
             TopAppBar(
-                title = { Text(text = "Error Memory") },
-                navigationIcon = {
-                    IconButton(onClick = onBackPressed) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                modifier = Modifier.statusBarsPadding()
+                title = { Text(text = "Error Memory") }, navigationIcon = {
+                BackButton(onClick = {
+                    onBackPressed()
+                })
+            }, modifier = Modifier.statusBarsPadding()
             )
-        }
-    ) { paddingValues ->
+        }) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -136,11 +128,9 @@ fun DTCScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
-                        onClick = { onBackPressed() },
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error
-                            )
+                        onClick = { onBackPressed() }, colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
                     ) { Text("Back to Dashboard") }
                 }
             }
@@ -249,22 +239,16 @@ fun DTCScreen(
                     } else {
                         // Card with background for the list
                         Card(
-                            modifier = Modifier.weight(1f),
-                            colors =
-                                CardDefaults.cardColors(
-                                    containerColor =
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                            .copy(alpha = 0.5f)
-                                ),
-                            shape = RoundedCornerShape(12.dp)
+                            modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            ), shape = RoundedCornerShape(12.dp)
                         ) {
                             LazyColumn(modifier = Modifier.fillMaxSize()) {
                                 items(state.dtcErrors) { error ->
                                     ErrorItem(
                                         code = error.code,
                                         description = error.description,
-                                        onClick = { onErrorClick(error.code) }
-                                    )
+                                        onClick = { onErrorClick(error.code) })
                                     HorizontalDivider(
                                         color = MaterialTheme.colorScheme.surfaceVariant
                                     )
@@ -290,11 +274,9 @@ fun DTCScreen(
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.error, // Dark red color
-                                    modifier =
-                                        Modifier.padding(
-                                            horizontal = 16.dp,
-                                            vertical = 8.dp
-                                        ),
+                                    modifier = Modifier.padding(
+                                        horizontal = 16.dp, vertical = 8.dp
+                                    ),
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -308,13 +290,10 @@ fun DTCScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(52.dp),
-                            colors =
-                                ButtonDefaults.buttonColors(
-                                    containerColor =
-                                        MaterialTheme.colorScheme.errorContainer,
-                                    contentColor =
-                                        MaterialTheme.colorScheme.onErrorContainer
-                                ),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            ),
                             enabled = state.dtcErrors.isNotEmpty() && !state.isLoading
                         ) {
                             Icon(
@@ -340,15 +319,10 @@ fun DTCScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(52.dp),
-                            colors =
-                                ButtonDefaults.buttonColors(
-                                    containerColor =
-                                        MaterialTheme.colorScheme
-                                            .secondaryContainer,
-                                    contentColor =
-                                        MaterialTheme.colorScheme
-                                            .onSecondaryContainer
-                                )
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,

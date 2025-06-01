@@ -38,8 +38,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.carsense.features.sensors.domain.model.SensorReading
 import com.carsense.features.sensors.presentation.components.SensorView
 import com.carsense.features.sensors.presentation.viewmodel.SensorViewModel
+import com.carsense.features.welcome.presentation.components.BackButton
 import com.composables.icons.lucide.Activity
-import com.composables.icons.lucide.ArrowLeft
 import com.composables.icons.lucide.Droplet
 import com.composables.icons.lucide.Gauge
 import com.composables.icons.lucide.Lucide
@@ -52,10 +52,7 @@ import com.composables.icons.lucide.Wind
 
 /** Data class for sensor display configuration */
 private data class SensorConfig(
-    val id: String,
-    val title: String,
-    val icon: ImageVector,
-    val reading: SensorReading?
+    val id: String, val title: String, val icon: ImageVector, val reading: SensorReading?
 )
 
 /** Screen that displays sensor readings in card format */
@@ -65,64 +62,30 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
     val state by viewModel.state.collectAsState()
 
     // Pre-configure all sensors to prevent recreating this list on each recomposition
-    val sensorConfigs by
-    remember(state) {
+    val sensorConfigs by remember(state) {
         derivedStateOf {
             listOf(
-                SensorConfig("rpm", "Engine RPM", Lucide.Gauge, state.rpmReading),
-                SensorConfig(
-                    "speed",
-                    "Vehicle Speed",
-                    Lucide.Gauge,
-                    state.speedReading
-                ),
-                SensorConfig(
-                    "coolant",
-                    "Coolant Temperature",
-                    Lucide.Thermometer,
-                    state.coolantTempReading
-                ),
-                SensorConfig(
-                    "intake",
-                    "Intake Air Temperature",
-                    Lucide.Wind,
-                    state.intakeAirTempReading
-                ),
-                SensorConfig(
-                    "throttle",
-                    "Throttle Position",
-                    Lucide.Gauge,
-                    state.throttlePositionReading
-                ),
-                SensorConfig(
-                    "fuel",
-                    "Fuel Level",
-                    Lucide.Droplet,
-                    state.fuelLevelReading
-                ),
-                SensorConfig(
-                    "load",
-                    "Engine Load",
-                    Lucide.Activity,
-                    state.engineLoadReading
-                ),
-                SensorConfig(
+                SensorConfig("rpm", "Engine RPM", Lucide.Gauge, state.rpmReading), SensorConfig(
+                    "speed", "Vehicle Speed", Lucide.Gauge, state.speedReading
+                ), SensorConfig(
+                    "coolant", "Coolant Temperature", Lucide.Thermometer, state.coolantTempReading
+                ), SensorConfig(
+                    "intake", "Intake Air Temperature", Lucide.Wind, state.intakeAirTempReading
+                ), SensorConfig(
+                    "throttle", "Throttle Position", Lucide.Gauge, state.throttlePositionReading
+                ), SensorConfig(
+                    "fuel", "Fuel Level", Lucide.Droplet, state.fuelLevelReading
+                ), SensorConfig(
+                    "load", "Engine Load", Lucide.Activity, state.engineLoadReading
+                ), SensorConfig(
                     "manifold",
                     "Intake Manifold Pressure",
                     Lucide.Gauge,
                     state.intakeManifoldPressureReading
-                ),
-                SensorConfig(
-                    "timing",
-                    "Ignition Timing Advance",
-                    Lucide.Timer,
-                    state.timingAdvanceReading
-                ),
-                SensorConfig(
-                    "maf",
-                    "Mass Air Flow Rate",
-                    Lucide.Wind,
-                    state.massAirFlowReading
+                ), SensorConfig(
+                    "timing", "Ignition Timing Advance", Lucide.Timer, state.timingAdvanceReading
+                ), SensorConfig(
+                    "maf", "Mass Air Flow Rate", Lucide.Wind, state.massAirFlowReading
                 )
             )
         }
@@ -165,8 +128,7 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
 
     // Status message and speed testing UI
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
+        containerColor = MaterialTheme.colorScheme.background, topBar = {
             TopAppBar(
                 title = {
                     Text(
@@ -175,17 +137,13 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            // Stop monitoring before navigating back
-                            viewModel.stopMonitoring()
-                            onBackPressed()
-                        }
-                    ) { Icon(imageVector = Lucide.ArrowLeft, contentDescription = "Back") }
-                },
-                actions = {
+                }, navigationIcon = {
+                    BackButton(onClick = {
+                        // Stop monitoring before navigating back
+                        viewModel.stopMonitoring()
+                        onBackPressed()
+                    })
+                }, actions = {
                     // Toggle monitoring button
                     IconButton(
                         onClick = {
@@ -194,15 +152,12 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                             } else {
                                 viewModel.startMonitoring()
                             }
-                        }
-                    ) {
+                        }) {
                         Icon(
-                            imageVector =
-                                if (state.isMonitoring) Lucide.Pause
-                                else Lucide.Play,
-                            contentDescription =
-                                if (state.isMonitoring) "Stop Monitoring"
-                                else "Start Monitoring"
+                            imageVector = if (state.isMonitoring) Lucide.Pause
+                            else Lucide.Play,
+                            contentDescription = if (state.isMonitoring) "Stop Monitoring"
+                            else "Start Monitoring"
                         )
                     }
 
@@ -211,21 +166,19 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                         onClick = {
                             viewModel.stopMonitoring()
                             viewModel.startMonitoring()
-                        }
-                    ) {
+                        }) {
                         Icon(
-                            imageVector = Lucide.RefreshCw,
-                            contentDescription = "Refresh Sensors"
+                            imageVector = Lucide.RefreshCw, contentDescription = "Refresh Sensors"
                         )
                     }
-                },
-                modifier = Modifier.statusBarsPadding()
+                }, modifier = Modifier.statusBarsPadding()
             )
-        }
-    ) { paddingValues ->
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(paddingValues)) {
+        }) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
             if (state.isLoading && state.rpmReading == null) {
                 // Show loading indicator when initially loading
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -242,9 +195,7 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                     // recompositions
                     items(sensorConfigs, key = { it.id }) { config ->
                         SensorView(
-                            title = config.title,
-                            icon = config.icon,
-                            sensorReading = config.reading
+                            title = config.title, icon = config.icon, sensorReading = config.reading
                         )
                     }
 
@@ -257,17 +208,13 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                                 .padding(8.dp)
                         ) {
                             Text(
-                                text =
-                                    if (state.isMonitoring) "Monitoring active"
-                                    else "Monitoring paused",
+                                text = if (state.isMonitoring) "Monitoring active"
+                                else "Monitoring paused",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color =
-                                    if (state.isMonitoring)
-                                        MaterialTheme.colorScheme.primary
-                                    else
-                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                            alpha = 0.6f
-                                        ),
+                                color = if (state.isMonitoring) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                    alpha = 0.6f
+                                ),
                                 textAlign = TextAlign.Center
                             )
                         }

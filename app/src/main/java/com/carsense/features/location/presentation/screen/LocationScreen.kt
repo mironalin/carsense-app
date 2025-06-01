@@ -14,10 +14,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -32,7 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carsense.core.room.entity.LocationPointEntity
 import com.carsense.features.location.presentation.viewmodel.LocationViewModel
-import com.composables.icons.lucide.ArrowLeft
+import com.carsense.features.welcome.presentation.components.BackButton
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MapPin
 import java.text.SimpleDateFormat
@@ -42,8 +41,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LocationScreen(
-    viewModel: LocationViewModel = hiltViewModel(),
-    onBackPressed: () -> Unit
+    viewModel: LocationViewModel = hiltViewModel(), onBackPressed: () -> Unit
 ) {
     // Collect the Flow<List<LocationPointEntity>> from the StateFlow
     val locationPointsFlow by viewModel.locationPoints.collectAsState()
@@ -52,19 +50,12 @@ fun LocationScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Location History") },
-                navigationIcon = {
-                    IconButton(onClick = onBackPressed) {
-                        Icon(
-                            imageVector = Lucide.ArrowLeft,
-                            contentDescription = "Back"
-                        )
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
+            TopAppBar(title = { Text("Location History") }, navigationIcon = {
+                BackButton(onClick = {
+                    onBackPressed()
+                })
+            })
+        }) { paddingValues ->
         if (locationPoints.isEmpty()) {
             // Show empty state
             Box(
@@ -107,7 +98,7 @@ fun LocationScreen(
             ) {
                 items(locationPoints) { locationPoint ->
                     LocationPointItem(locationPoint = locationPoint)
-                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 }
             }
         }
@@ -141,8 +132,7 @@ fun LocationPointItem(locationPoint: LocationPointEntity) {
 
             // Coordinates
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
                     Text(
@@ -173,8 +163,7 @@ fun LocationPointItem(locationPoint: LocationPointEntity) {
 
             // Additional data if available
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 // Speed
                 Column {
@@ -183,10 +172,8 @@ fun LocationPointItem(locationPoint: LocationPointEntity) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        text = locationPoint.speed?.let { "${it.toInt()} m/s" } ?: "N/A",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(text = locationPoint.speed?.let { "${it.toInt()} m/s" } ?: "N/A",
+                        style = MaterialTheme.typography.bodyMedium)
                 }
 
                 // Altitude
@@ -196,10 +183,8 @@ fun LocationPointItem(locationPoint: LocationPointEntity) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        text = locationPoint.altitude?.let { "${it.toInt()} m" } ?: "N/A",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(text = locationPoint.altitude?.let { "${it.toInt()} m" } ?: "N/A",
+                        style = MaterialTheme.typography.bodyMedium)
                 }
 
                 // Accuracy
@@ -209,10 +194,8 @@ fun LocationPointItem(locationPoint: LocationPointEntity) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        text = locationPoint.accuracy?.let { "${it.toInt()} m" } ?: "N/A",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(text = locationPoint.accuracy?.let { "${it.toInt()} m" } ?: "N/A",
+                        style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
