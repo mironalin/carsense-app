@@ -57,11 +57,10 @@ fun ConnectionDetailsCard(
 
     Box(
         modifier = Modifier
-            .fillMaxWidth(0.85f)
+            .fillMaxWidth()
             .heightIn(min = 56.dp)
             .background(
-                MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = RoundedCornerShape(12.dp)
+                MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(12.dp)
             )
             .border(
                 width = 1.dp,
@@ -78,8 +77,7 @@ fun ConnectionDetailsCard(
                     .clickable { isExpanded = !isExpanded }
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+                verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "Connection Details",
                     style = MaterialTheme.typography.titleMedium,
@@ -88,8 +86,7 @@ fun ConnectionDetailsCard(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
-                        onClick = onRefresh,
-                        modifier = Modifier.size(32.dp)
+                        onClick = onRefresh, modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             imageVector = Lucide.RefreshCw,
@@ -110,15 +107,11 @@ fun ConnectionDetailsCard(
 
             // Animated content area
             AnimatedVisibility(
-                visible = isExpanded,
-                enter = expandVertically(),
-                exit = shrinkVertically()
+                visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()
             ) {
                 Column(
                     modifier = Modifier.padding(
-                        start = 16.dp,
-                        end = 16.dp,
-                        bottom = 16.dp
+                        start = 16.dp, end = 16.dp, bottom = 16.dp
                     )
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
