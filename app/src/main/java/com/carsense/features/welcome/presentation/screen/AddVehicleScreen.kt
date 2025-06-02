@@ -3,8 +3,10 @@ package com.carsense.features.welcome.presentation.screen
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -12,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -38,12 +41,467 @@ fun AddVehicleScreen(
     var model by rememberSaveable { mutableStateOf("") }
     var yearText by rememberSaveable { mutableStateOf("") }
     var vin by rememberSaveable { mutableStateOf("") }
-    var nickname by rememberSaveable { mutableStateOf("") }
     var licensePlate by rememberSaveable { mutableStateOf("") }
     var engineType by rememberSaveable { mutableStateOf("") }
     var fuelType by rememberSaveable { mutableStateOf("") }
     var transmissionType by rememberSaveable { mutableStateOf("") }
     var drivetrain by rememberSaveable { mutableStateOf("") }
+
+    // Define car makes and models
+    val carMakes = listOf(
+        "Acura",
+        "Alfa Romeo",
+        "Aston Martin",
+        "Audi",
+        "Bentley",
+        "BMW",
+        "Bugatti",
+        "Buick",
+        "Cadillac",
+        "Chevrolet",
+        "Chrysler",
+        "Citroën",
+        "Cupra",
+        "Dacia",
+        "Dodge",
+        "DS Automobiles",
+        "Ferrari",
+        "Fiat",
+        "Ford",
+        "Genesis",
+        "GMC",
+        "Honda",
+        "Hyundai",
+        "Infiniti",
+        "Jaguar",
+        "Jeep",
+        "Kia",
+        "Lamborghini",
+        "Lancia",
+        "Land Rover",
+        "Lexus",
+        "Lincoln",
+        "Maserati",
+        "Mazda",
+        "Mercedes-Benz",
+        "Mini",
+        "Mitsubishi",
+        "Nissan",
+        "Opel",
+        "Peugeot",
+        "Porsche",
+        "Ram",
+        "Renault",
+        "Rolls-Royce",
+        "SEAT",
+        "Škoda",
+        "Subaru",
+        "Suzuki",
+        "Tesla",
+        "Toyota",
+        "Vauxhall",
+        "Volkswagen",
+        "Volvo"
+    )
+
+    // Map of car makes to their models
+    val carModelsMap = remember {
+        mapOf(
+            "Acura" to listOf("ILX", "MDX", "RDX", "TLX", "NSX"),
+            "Alfa Romeo" to listOf("Giulia", "Stelvio", "4C", "Tonale", "Giulietta", "MiTo"),
+            "Aston Martin" to listOf("DB11", "DBS", "Vantage", "DBX", "Valkyrie"),
+            "Audi" to listOf(
+                "A1",
+                "A3",
+                "A4",
+                "A5",
+                "A6",
+                "A7",
+                "A8",
+                "Q2",
+                "Q3",
+                "Q5",
+                "Q7",
+                "Q8",
+                "e-tron",
+                "TT",
+                "R8",
+                "RS3",
+                "RS4",
+                "RS6",
+                "RS7"
+            ),
+            "Bentley" to listOf("Continental GT", "Bentayga", "Flying Spur", "Mulsanne"),
+            "BMW" to listOf(
+                "1 Series",
+                "2 Series",
+                "3 Series",
+                "4 Series",
+                "5 Series",
+                "6 Series",
+                "7 Series",
+                "8 Series",
+                "X1",
+                "X2",
+                "X3",
+                "X4",
+                "X5",
+                "X6",
+                "X7",
+                "Z4",
+                "i3",
+                "i4",
+                "i8",
+                "iX",
+                "M2",
+                "M3",
+                "M4",
+                "M5",
+                "M8"
+            ),
+            "Bugatti" to listOf("Chiron", "Veyron", "Divo", "Centodieci"),
+            "Buick" to listOf("Enclave", "Encore", "Envision", "LaCrosse", "Regal"),
+            "Cadillac" to listOf("ATS", "CT4", "CT5", "CTS", "Escalade", "XT4", "XT5", "XT6"),
+            "Chevrolet" to listOf(
+                "Blazer",
+                "Bolt",
+                "Camaro",
+                "Colorado",
+                "Corvette",
+                "Equinox",
+                "Impala",
+                "Malibu",
+                "Silverado",
+                "Spark",
+                "Suburban",
+                "Tahoe",
+                "Traverse",
+                "Trax"
+            ),
+            "Chrysler" to listOf("300", "Pacifica", "Voyager"),
+            "Citroën" to listOf(
+                "C1",
+                "C3",
+                "C3 Aircross",
+                "C4",
+                "C4 Cactus",
+                "C5",
+                "C5 Aircross",
+                "Berlingo",
+                "SpaceTourer"
+            ),
+            "Cupra" to listOf("Formentor", "Leon", "Ateca", "Born", "Terramar"),
+            "Dacia" to listOf("Sandero", "Duster", "Logan", "Spring", "Jogger", "Dokker", "Lodgy"),
+            "Dodge" to listOf("Challenger", "Charger", "Durango", "Grand Caravan", "Journey"),
+            "DS Automobiles" to listOf("DS 3", "DS 3 Crossback", "DS 4", "DS 7 Crossback", "DS 9"),
+            "Ferrari" to listOf("488", "812", "F8", "Roma", "SF90", "296 GTB", "Purosangue"),
+            "Fiat" to listOf(
+                "500", "500X", "500e", "Panda", "Tipo", "Spider", "Ducato", "Doblo", "Multipla"
+            ),
+            "Ford" to listOf(
+                "Bronco",
+                "EcoSport",
+                "Edge",
+                "Escape",
+                "Expedition",
+                "Explorer",
+                "F-150",
+                "F-250",
+                "F-350",
+                "Fiesta",
+                "Focus",
+                "Fusion",
+                "Mustang",
+                "Ranger",
+                "Transit",
+                "Kuga",
+                "Puma",
+                "Mondeo",
+                "S-Max",
+                "Galaxy"
+            ),
+            "Genesis" to listOf("G70", "G80", "G90", "GV70", "GV80"),
+            "GMC" to listOf("Acadia", "Canyon", "Sierra", "Terrain", "Yukon"),
+            "Honda" to listOf(
+                "Accord",
+                "Civic",
+                "CR-V",
+                "Fit",
+                "HR-V",
+                "Insight",
+                "Odyssey",
+                "Passport",
+                "Pilot",
+                "Ridgeline",
+                "Jazz",
+                "e"
+            ),
+            "Hyundai" to listOf(
+                "Accent",
+                "Elantra",
+                "Kona",
+                "Palisade",
+                "Santa Fe",
+                "Sonata",
+                "Tucson",
+                "Veloster",
+                "Venue",
+                "i10",
+                "i20",
+                "i30",
+                "IONIQ",
+                "IONIQ 5",
+                "IONIQ 6",
+                "Bayon"
+            ),
+            "Infiniti" to listOf("Q30", "Q50", "Q60", "QX30", "QX50", "QX60", "QX80"),
+            "Jaguar" to listOf("E-Pace", "F-Pace", "F-Type", "I-Pace", "XE", "XF", "XJ"),
+            "Jeep" to listOf(
+                "Cherokee",
+                "Compass",
+                "Gladiator",
+                "Grand Cherokee",
+                "Renegade",
+                "Wrangler",
+                "Avenger",
+                "Commander"
+            ),
+            "Kia" to listOf(
+                "Ceed",
+                "Forte",
+                "K5",
+                "Niro",
+                "Optima",
+                "Picanto",
+                "Rio",
+                "Seltos",
+                "Sorento",
+                "Soul",
+                "Sportage",
+                "Stinger",
+                "Telluride",
+                "ProCeed",
+                "XCeed",
+                "EV6",
+                "EV9"
+            ),
+            "Lamborghini" to listOf("Aventador", "Huracan", "Urus", "Revuelto"),
+            "Lancia" to listOf("Ypsilon", "Delta"),
+            "Land Rover" to listOf(
+                "Defender",
+                "Discovery",
+                "Discovery Sport",
+                "Range Rover",
+                "Range Rover Evoque",
+                "Range Rover Sport",
+                "Range Rover Velar"
+            ),
+            "Lexus" to listOf("ES", "GS", "GX", "IS", "LC", "LS", "LX", "NX", "RC", "RX", "UX"),
+            "Lincoln" to listOf("Aviator", "Corsair", "MKZ", "Nautilus", "Navigator"),
+            "Maserati" to listOf("Ghibli", "Levante", "Quattroporte", "MC20", "Grecale"),
+            "Mazda" to listOf(
+                "CX-3",
+                "CX-30",
+                "CX-5",
+                "CX-60",
+                "CX-9",
+                "Mazda2",
+                "Mazda3",
+                "Mazda6",
+                "MX-5 Miata",
+                "MX-30"
+            ),
+            "Mercedes-Benz" to listOf(
+                "A-Class",
+                "B-Class",
+                "C-Class",
+                "CLA",
+                "CLS",
+                "E-Class",
+                "EQA",
+                "EQB",
+                "EQC",
+                "EQE",
+                "EQS",
+                "G-Class",
+                "GLA",
+                "GLB",
+                "GLC",
+                "GLE",
+                "GLS",
+                "S-Class",
+                "SL",
+                "SLC",
+                "AMG GT",
+                "AMG One"
+            ),
+            "Mini" to listOf("Clubman", "Convertible", "Countryman", "Hardtop", "Electric"),
+            "Mitsubishi" to listOf(
+                "ASX",
+                "Eclipse Cross",
+                "Mirage",
+                "Outlander",
+                "Outlander Sport",
+                "Pajero",
+                "Space Star"
+            ),
+            "Nissan" to listOf(
+                "Altima",
+                "Ariya",
+                "Armada",
+                "Frontier",
+                "GT-R",
+                "Juke",
+                "Kicks",
+                "Leaf",
+                "Maxima",
+                "Micra",
+                "Murano",
+                "Note",
+                "Pathfinder",
+                "Pulsar",
+                "Qashqai",
+                "Rogue",
+                "Sentra",
+                "Titan",
+                "Versa",
+                "X-Trail"
+            ),
+            "Opel" to listOf(
+                "Astra",
+                "Corsa",
+                "Crossland",
+                "Grandland",
+                "Insignia",
+                "Mokka",
+                "Combo",
+                "Vivaro",
+                "Zafira"
+            ),
+            "Peugeot" to listOf(
+                "108",
+                "208",
+                "2008",
+                "308",
+                "3008",
+                "408",
+                "508",
+                "5008",
+                "Rifter",
+                "Traveller",
+                "Partner",
+                "Expert"
+            ),
+            "Porsche" to listOf("718", "911", "Cayenne", "Macan", "Panamera", "Taycan"),
+            "Ram" to listOf("1500", "2500", "3500", "ProMaster"),
+            "Renault" to listOf(
+                "Captur",
+                "Clio",
+                "Espace",
+                "Kadjar",
+                "Kangoo",
+                "Koleos",
+                "Megane",
+                "Scenic",
+                "Talisman",
+                "Twingo",
+                "ZOE",
+                "Arkana",
+                "Austral"
+            ),
+            "Rolls-Royce" to listOf("Cullinan", "Dawn", "Ghost", "Phantom", "Wraith"),
+            "SEAT" to listOf("Alhambra", "Arona", "Ateca", "Ibiza", "Leon", "Tarraco", "Mii"),
+            "Škoda" to listOf(
+                "Citigo",
+                "Fabia",
+                "Kamiq",
+                "Karoq",
+                "Kodiaq",
+                "Octavia",
+                "Rapid",
+                "Scala",
+                "Superb",
+                "Enyaq iV"
+            ),
+            "Subaru" to listOf(
+                "Ascent", "BRZ", "Crosstrek", "Forester", "Impreza", "Legacy", "Outback", "WRX"
+            ),
+            "Suzuki" to listOf(
+                "Across", "Baleno", "Ignis", "Jimny", "Swift", "S-Cross", "Swace", "Vitara"
+            ),
+            "Tesla" to listOf("Model 3", "Model S", "Model X", "Model Y", "Cybertruck", "Roadster"),
+            "Toyota" to listOf(
+                "4Runner",
+                "86",
+                "Avalon",
+                "Aygo",
+                "C-HR",
+                "Camry",
+                "Corolla",
+                "Highlander",
+                "Land Cruiser",
+                "Mirai",
+                "Prius",
+                "RAV4",
+                "Sienna",
+                "Supra",
+                "Tacoma",
+                "Tundra",
+                "Yaris"
+            ),
+            "Vauxhall" to listOf(
+                "Astra",
+                "Corsa",
+                "Crossland",
+                "Grandland",
+                "Insignia",
+                "Mokka",
+                "Combo",
+                "Vivaro",
+                "Zafira"
+            ),
+            "Volkswagen" to listOf(
+                "Arteon",
+                "Atlas",
+                "Atlas Cross Sport",
+                "Golf",
+                "Golf GTI",
+                "ID.3",
+                "ID.4",
+                "ID.5",
+                "Jetta",
+                "Passat",
+                "Polo",
+                "T-Cross",
+                "T-Roc",
+                "Taigo",
+                "Tiguan",
+                "Touareg",
+                "Touran",
+                "Up!"
+            ),
+            "Volvo" to listOf(
+                "C40", "S60", "S90", "V60", "V90", "XC40", "XC60", "XC90", "EX30", "EX90"
+            )
+        )
+    }
+
+    // Get available models for the selected make
+    val availableModels = remember(make) {
+        carModelsMap[make] ?: emptyList()
+    }
+
+    // Define dropdown options
+    val fuelTypeOptions = listOf("Gasoline", "Diesel", "Electric", "Hybrid", "Hydrogen", "Other")
+    val transmissionOptions = listOf("Automatic", "Manual", "CVT", "Semi-Automatic", "Dual-Clutch")
+    val drivetrainOptions = listOf("FWD", "RWD", "AWD", "4WD")
+
+    // Expanded states for dropdowns
+    var makeExpanded by remember { mutableStateOf(false) }
+    var modelExpanded by remember { mutableStateOf(false) }
+    var fuelTypeExpanded by remember { mutableStateOf(false) }
+    var transmissionExpanded by remember { mutableStateOf(false) }
+    var drivetrainExpanded by remember { mutableStateOf(false) }
 
     // Screen initialization state that persists across recompositions
     var isInitialized by rememberSaveable { mutableStateOf(false) }
@@ -62,6 +520,145 @@ fun AddVehicleScreen(
 
     // Collect state
     val state by viewModel.state.collectAsState()
+
+    // Helper function for consistent dropdown styling
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    fun StyledDropdownField(
+        value: String,
+        onValueChange: (String) -> Unit,
+        label: @Composable () -> Unit,
+        placeholder: @Composable () -> Unit,
+        expanded: Boolean,
+        onExpandedChange: () -> Unit,
+        onDismissRequest: () -> Unit,
+        modifier: Modifier = Modifier,
+        enabled: Boolean = true,
+        isError: Boolean = false,
+        supportingText: @Composable (() -> Unit)? = null,
+        options: List<String>,
+        onOptionSelected: (String) -> Unit
+    ) {
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { if (enabled) onExpandedChange() },
+            modifier = modifier
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                readOnly = true,
+                label = label,
+                placeholder = placeholder,
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    disabledBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth(),
+                singleLine = true,
+                isError = isError,
+                enabled = enabled,
+                supportingText = supportingText,
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            if (enabled) {
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = onDismissRequest,
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surface)
+                        .defaultMinSize(minWidth = 200.dp)
+                ) {
+                    options.forEach { option ->
+                        DropdownMenuItem(
+                            text = {
+                            Text(
+                                text = option,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (option == value) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                            onClick = {
+                                onOptionSelected(option)
+                                onDismissRequest()
+                            },
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            colors = MenuDefaults.itemColors(
+                                textColor = MaterialTheme.colorScheme.onSurface,
+                                leadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                trailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                                disabledLeadingIconColor = MaterialTheme.colorScheme.onSurface.copy(
+                                    alpha = 0.38f
+                                ),
+                                disabledTrailingIconColor = MaterialTheme.colorScheme.onSurface.copy(
+                                    alpha = 0.38f
+                                )
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (option == value) MaterialTheme.colorScheme.primaryContainer.copy(
+                                        alpha = 0.1f
+                                    )
+                                    else Color.Transparent
+                                )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // Helper function for consistent text input styling
+    @Composable
+    fun StyledTextField(
+        value: String,
+        onValueChange: (String) -> Unit,
+        label: @Composable () -> Unit,
+        placeholder: @Composable () -> Unit,
+        modifier: Modifier = Modifier,
+        enabled: Boolean = true,
+        readOnly: Boolean = false,
+        isError: Boolean = false,
+        keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+        supportingText: @Composable (() -> Unit)? = null,
+        trailingIcon: @Composable (() -> Unit)? = null,
+        singleLine: Boolean = true
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = label,
+            placeholder = placeholder,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                disabledBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+            ),
+            modifier = modifier.fillMaxWidth(),
+            singleLine = singleLine,
+            isError = isError,
+            enabled = enabled,
+            readOnly = readOnly,
+            keyboardOptions = keyboardOptions,
+            supportingText = supportingText,
+            trailingIcon = trailingIcon,
+            shape = RoundedCornerShape(12.dp)
+        )
+    }
 
     // First-time initialization and capture initial selected vehicle
     LaunchedEffect(Unit) {
@@ -140,9 +737,22 @@ fun AddVehicleScreen(
         }
     }
 
-    val isFormValid = remember(make, model, yearText) {
-        make.isNotBlank() && model.isNotBlank() && yearText.isNotBlank() && yearText.toIntOrNull() != null && yearText.toIntOrNull() in 1900..2100
-    }
+    // Validation for all form fields
+    val isMakeValid = make.isNotBlank()
+    val isModelValid = model.isNotBlank()
+    val isYearValid =
+        yearText.isNotBlank() && yearText.toIntOrNull() != null && yearText.toIntOrNull() in 1900..2100
+    val isLicensePlateValid = licensePlate.length <= 15 // Basic validation for license plate
+    val isVinValid =
+        vin.isEmpty() || vin.length == 17 // VIN is optional, but must be 17 chars if provided
+    val isEngineTypeValid = engineType.isNotBlank()
+    val isFuelTypeValid = fuelType.isNotBlank()
+    val isTransmissionTypeValid = transmissionType.isNotBlank()
+    val isDrivetrainValid = drivetrain.isNotBlank()
+
+    // Overall form validity
+    val isFormValid =
+        isMakeValid && isModelValid && isYearValid && isLicensePlateValid && isVinValid && isEngineTypeValid && isFuelTypeValid && isTransmissionTypeValid && isDrivetrainValid
 
     // Handle successful vehicle addition
     LaunchedEffect(state.isAddingVehicle, state.selectedVehicle) {
@@ -168,18 +778,25 @@ fun AddVehicleScreen(
         }
     }
 
+    // Reset model when make changes
+    LaunchedEffect(make) {
+        if (make.isNotBlank() && model.isNotBlank() && !availableModels.contains(model)) {
+            model = ""
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Add Vehicle") }, navigationIcon = {
-                    BackButton(onClick = {
-                        Timber.d("AddVehicleScreen: Back button pressed, pausing data loading")
-                        viewModel.pauseDataLoading() // Pause data loading before navigation
-                        onBackPressed()
-                    })
-                }, colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                BackButton(onClick = {
+                    Timber.d("AddVehicleScreen: Back button pressed, pausing data loading")
+                    viewModel.pauseDataLoading() // Pause data loading before navigation
+                    onBackPressed()
+                })
+            }, colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
             )
         }) { paddingValues ->
         Box(
@@ -220,119 +837,166 @@ fun AddVehicleScreen(
                         )
                     }
 
-                    // Form fields
-                    OutlinedTextField(
-                        value = make,
-                        onValueChange = { make = it },
-                        label = { Text("Make*") },
-                        placeholder = { Text("e.g., Toyota") },
+                    // Make and Model on the same row with dropdowns
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                    )
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Make dropdown
+                        StyledDropdownField(
+                            value = make,
+                            onValueChange = { make = it },
+                            label = { Text("Make*") },
+                            placeholder = { Text("Select make") },
+                            expanded = makeExpanded,
+                            onExpandedChange = { makeExpanded = !makeExpanded },
+                            onDismissRequest = { makeExpanded = false },
+                            modifier = Modifier.weight(1f),
+                            isError = make.isNotBlank() && !isMakeValid,
+                            supportingText = { if (make.isNotBlank() && !isMakeValid) Text("Required") },
+                            options = carMakes,
+                            onOptionSelected = { make = it })
 
-                    OutlinedTextField(
-                        value = model,
-                        onValueChange = { model = it },
-                        label = { Text("Model*") },
-                        placeholder = { Text("e.g., Corolla") },
+                        // Model dropdown (dependent on selected make)
+                        StyledDropdownField(
+                            value = model,
+                            onValueChange = { model = it },
+                            label = { Text("Model*") },
+                            placeholder = { Text("Select model") },
+                            expanded = modelExpanded,
+                            onExpandedChange = { modelExpanded = !modelExpanded },
+                            onDismissRequest = { modelExpanded = false },
+                            modifier = Modifier.weight(1f),
+                            isError = model.isNotBlank() && !isModelValid,
+                            supportingText = { if (model.isNotBlank() && !isModelValid) Text("Required") },
+                            options = availableModels,
+                            onOptionSelected = { model = it },
+                            enabled = make.isNotBlank()
+                        )
+                    }
+
+                    // Year and License Plate on the same row
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                    )
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StyledTextField(
+                            value = yearText,
+                            onValueChange = { yearText = it },
+                            label = { Text("Year*") },
+                            placeholder = { Text("e.g., 2020") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
+                            ),
+                            isError = yearText.isNotEmpty() && !isYearValid,
+                            supportingText = { if (yearText.isNotEmpty() && !isYearValid) Text("Enter valid year (1900-2100)") })
 
-                    OutlinedTextField(
-                        value = yearText,
-                        onValueChange = { yearText = it },
-                        label = { Text("Year*") },
-                        placeholder = { Text("e.g., 2020") },
+                        StyledTextField(
+                            value = licensePlate,
+                            onValueChange = { licensePlate = it },
+                            label = { Text("License Plate") },
+                            placeholder = { Text("e.g., ABC123") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            isError = licensePlate.isNotEmpty() && !isLicensePlateValid,
+                            supportingText = {
+                                if (licensePlate.isNotEmpty() && !isLicensePlateValid) Text(
+                                    "Max 15 characters"
+                                )
+                            })
+                    }
+
+                    // Engine Type and Fuel Type on the same row
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
-                        ),
-                        isError = yearText.isNotEmpty() && (yearText.toIntOrNull() == null || yearText.toIntOrNull() !in 1900..2100)
-                    )
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StyledTextField(
+                            value = engineType,
+                            onValueChange = { engineType = it },
+                            label = { Text("Engine Type*") },
+                            placeholder = { Text("e.g., V6, I4") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            isError = engineType.isNotBlank() && !isEngineTypeValid,
+                            supportingText = {
+                                if (engineType.isNotBlank() && !isEngineTypeValid) Text(
+                                    "Required"
+                                )
+                            })
 
-                    OutlinedTextField(
-                        value = nickname,
-                        onValueChange = { nickname = it },
-                        label = { Text("Nickname") },
-                        placeholder = { Text("e.g., My Car") },
+                        // Fuel Type Dropdown
+                        StyledDropdownField(
+                            value = fuelType,
+                            onValueChange = { fuelType = it },
+                            label = { Text("Fuel Type*") },
+                            placeholder = { Text("Fuel type") },
+                            expanded = fuelTypeExpanded,
+                            onExpandedChange = { fuelTypeExpanded = !fuelTypeExpanded },
+                            onDismissRequest = { fuelTypeExpanded = false },
+                            modifier = Modifier.weight(1f),
+                            isError = fuelType.isNotBlank() && !isFuelTypeValid,
+                            supportingText = { if (fuelType.isNotBlank() && !isFuelTypeValid) Text("Required") },
+                            options = fuelTypeOptions,
+                            onOptionSelected = { fuelType = it })
+                    }
+
+                    // Transmission Type on its own row
+                    StyledDropdownField(
+                        value = transmissionType,
+                        onValueChange = { transmissionType = it },
+                        label = { Text("Transmission Type*") },
+                        placeholder = { Text("Select Transmission Type") },
+                        expanded = transmissionExpanded,
+                        onExpandedChange = { transmissionExpanded = !transmissionExpanded },
+                        onDismissRequest = { transmissionExpanded = false },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                    )
+                        isError = transmissionType.isNotBlank() && !isTransmissionTypeValid,
+                        supportingText = {
+                            if (transmissionType.isNotBlank() && !isTransmissionTypeValid) Text(
+                                "Required"
+                            )
+                        },
+                        options = transmissionOptions,
+                        onOptionSelected = { transmissionType = it })
 
-                    OutlinedTextField(
-                        value = licensePlate,
-                        onValueChange = { licensePlate = it },
-                        label = { Text("License Plate") },
-                        placeholder = { Text("e.g., ABC123") },
+                    // Drivetrain on its own row
+                    StyledDropdownField(
+                        value = drivetrain,
+                        onValueChange = { drivetrain = it },
+                        label = { Text("Drivetrain*") },
+                        placeholder = { Text("Select Drivetrain") },
+                        expanded = drivetrainExpanded,
+                        onExpandedChange = { drivetrainExpanded = !drivetrainExpanded },
+                        onDismissRequest = { drivetrainExpanded = false },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                    )
+                        isError = drivetrain.isNotBlank() && !isDrivetrainValid,
+                        supportingText = { if (drivetrain.isNotBlank() && !isDrivetrainValid) Text("Required") },
+                        options = drivetrainOptions,
+                        onOptionSelected = { drivetrain = it })
 
-                    OutlinedTextField(
+                    StyledTextField(
                         value = vin,
-                        onValueChange = { vin = it },
+                        onValueChange = { vin = it.uppercase() },
                         label = { Text("VIN") },
                         placeholder = { Text("Vehicle Identification Number") },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                    )
-
-                    OutlinedTextField(
-                        value = engineType,
-                        onValueChange = { engineType = it },
-                        label = { Text("Engine Type") },
-                        placeholder = { Text("e.g., V6, I4") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                    )
-
-                    OutlinedTextField(
-                        value = fuelType,
-                        onValueChange = { fuelType = it },
-                        label = { Text("Fuel Type") },
-                        placeholder = { Text("e.g., Gasoline, Diesel, Electric") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                    )
-
-                    OutlinedTextField(
-                        value = transmissionType,
-                        onValueChange = { transmissionType = it },
-                        label = { Text("Transmission Type") },
-                        placeholder = { Text("e.g., Automatic, Manual") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                    )
-
-                    OutlinedTextField(
-                        value = drivetrain,
-                        onValueChange = { drivetrain = it },
-                        label = { Text("Drivetrain") },
-                        placeholder = { Text("e.g., FWD, RWD, AWD, 4WD") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
-                    )
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        isError = vin.isNotEmpty() && !isVinValid,
+                        supportingText = { if (vin.isNotEmpty() && !isVinValid) Text("VIN must be 17 characters") })
 
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -344,12 +1008,12 @@ fun AddVehicleScreen(
                                 model = model,
                                 year = year,
                                 vin = vin.ifEmpty { UUID.randomUUID().toString().substring(0, 17) },
-                                nickname = nickname,
                                 licensePlate = licensePlate,
-                                engineType = engineType.ifEmpty { "Unknown" },
-                                fuelType = fuelType.ifEmpty { "Unknown" },
-                                transmissionType = transmissionType.ifEmpty { "Unknown" },
-                                drivetrain = drivetrain.ifEmpty { "Unknown" })
+                                engineType = engineType,
+                                fuelType = fuelType,
+                                transmissionType = transmissionType,
+                                drivetrain = drivetrain
+                            )
 
                             // Set the flag to indicate we're adding a vehicle in this session
                             isAddingVehicleInThisSession = true
@@ -358,9 +1022,10 @@ fun AddVehicleScreen(
                             viewModel.onEvent(VehicleSelectionEvent.AddNewVehicle(vehicle))
                         },
                         enabled = isFormValid && !state.isAddingVehicle,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 16.dp)
+                            .heightIn(min = 56.dp),
                     ) {
                         if (state.isAddingVehicle) {
                             CircularProgressIndicator(
@@ -369,16 +1034,11 @@ fun AddVehicleScreen(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text("Add Vehicle")
+                            Text(
+                                text = "Add Vehicle", style = MaterialTheme.typography.titleMedium
+                            )
                         }
                     }
-
-                    Text(
-                        text = "* Required fields",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
                 }
             }
         }
