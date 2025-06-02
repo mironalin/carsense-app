@@ -94,9 +94,7 @@ class VehicleRepositoryImpl @Inject constructor(
             val response = vehicleApiService.createVehicle(request)
             if (response.isSuccessful && response.body() != null) {
                 val vehicleDto = response.body()!!.vehicle
-                val entity = vehicleDto.toEntity().copy(
-                    nickname = vehicle.nickname // Preserve nickname from request
-                )
+                val entity = vehicleDto.toEntity()
                 vehicleDao.insert(entity)
                 Result.success(entity.toDomainModel())
             } else {
@@ -125,9 +123,7 @@ class VehicleRepositoryImpl @Inject constructor(
             val response = vehicleApiService.updateVehicle(vehicle.uuid, request)
             if (response.isSuccessful && response.body() != null) {
                 val vehicleDto = response.body()!!
-                val entity = vehicleDto.toEntity().copy(
-                    nickname = vehicle.nickname // Preserve nickname
-                )
+                val entity = vehicleDto.toEntity()
                 vehicleDao.update(entity)
                 Result.success(entity.toDomainModel())
             } else {
@@ -190,16 +186,9 @@ class VehicleRepositoryImpl @Inject constructor(
                 val vehicleDtos = response.body()!!
                 Timber.d("refreshVehicles: Successfully fetched ${vehicleDtos.size} vehicles from API")
 
-                // Get current vehicles to preserve nicknames
-                val localVehicles = vehicleDao.getAllVehicles().firstOrNull() ?: emptyList()
-                val nicknameMap = localVehicles.associate { it.uuid to it.nickname }
-
                 // Insert/update all vehicles from API
                 for (dto in vehicleDtos) {
-                    val entity = dto.toEntity().copy(
-                        nickname = nicknameMap[dto.uuid]
-                            ?: dto.make // Use existing nickname or default to make
-                    )
+                    val entity = dto.toEntity()
                     val existing = vehicleDao.getVehicleByUuid(dto.uuid)
                     if (existing != null) {
                         vehicleDao.update(entity)
@@ -303,7 +292,6 @@ class VehicleRepositoryImpl @Inject constructor(
             transmissionType = this.transmissionType,
             drivetrain = this.drivetrain,
             licensePlate = this.licensePlate,
-            nickname = this.make, // Default nickname to make
             isSynced = true // From API, so already synced
         )
     }
@@ -322,7 +310,6 @@ class VehicleRepositoryImpl @Inject constructor(
             transmissionType = transmissionType ?: "",
             drivetrain = drivetrain ?: "",
             licensePlate = licensePlate ?: "",
-            nickname = nickname ?: make ?: "My Vehicle",
             createdAt = createdAt.toString(),
             updatedAt = updatedAt.toString(),
             isSelected = isSelected

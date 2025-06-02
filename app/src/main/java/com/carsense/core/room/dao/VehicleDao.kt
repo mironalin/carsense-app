@@ -43,7 +43,7 @@ interface VehicleDao {
     @Query("SELECT * FROM vehicles WHERE is_synced = 0 ORDER BY created_at_ms ASC")
     fun getUnsyncedVehicles(): Flow<List<VehicleEntity>>
 
-    @Query("SELECT * FROM vehicles ORDER BY nickname ASC, make ASC, model ASC")
+    @Query("SELECT * FROM vehicles ORDER BY make ASC, model ASC")
     fun getAllVehicles(): Flow<List<VehicleEntity>>
 
     @Query("DELETE FROM vehicles WHERE local_id = :localId")

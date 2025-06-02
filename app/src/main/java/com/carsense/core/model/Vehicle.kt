@@ -16,7 +16,6 @@ data class Vehicle(
     val transmissionType: String = "",
     val drivetrain: String = "",
     val licensePlate: String = "",
-    val nickname: String = "", // Additional field for UI display
     val odometerUpdatedAt: String? = null,
     val deletedAt: String? = null,
     val createdAt: String = "",
