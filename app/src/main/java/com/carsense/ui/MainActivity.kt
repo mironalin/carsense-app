@@ -116,10 +116,7 @@ class MainActivity : ComponentActivity() {
         // Ensure intent is not null before calling handleAuthRedirect, which expects a non-null Intent
         try {
             val currentIntent = intent // Capture the initial intent
-            if (currentIntent != null &&
-                currentIntent.action == Intent.ACTION_VIEW &&
-                currentIntent.data != null
-            ) {
+            if (currentIntent != null && currentIntent.action == Intent.ACTION_VIEW && currentIntent.data != null) {
                 Timber.d("Initial intent has VIEW action, checking for auth callback")
                 handleAuthRedirect(currentIntent)
             }
@@ -140,8 +137,10 @@ class MainActivity : ComponentActivity() {
                             is AuthUIEvent.LaunchLoginFlow -> {
                                 launchAuthFlow() // Call the Activity's method
                             }
+
                             is AuthUIEvent.ShowToast -> {
-                                Toast.makeText(this@MainActivity, event.message, Toast.LENGTH_LONG).show()
+                                Toast.makeText(this@MainActivity, event.message, Toast.LENGTH_LONG)
+                                    .show()
                             }
                         }
                     }
@@ -184,19 +183,16 @@ class MainActivity : ComponentActivity() {
 
                     // Show background rationale dialog if state is true
                     if (showBackgroundRationaleDialogState) {
-                        BackgroundLocationRationaleDialog(
-                            onConfirm = {
-                                showBackgroundRationaleDialogState = false
-                                LocationPermissionHelper.requestBackgroundLocationPermission(
-                                    backgroundLocationPermissionLauncher
-                                )
-                            },
-                            onDismiss = {
-                                showBackgroundRationaleDialogState = false
-                                Timber.w("User dismissed background location rationale.")
-                                // Handle if user explicitly denies/dismisses rationale
-                            }
-                        )
+                        BackgroundLocationRationaleDialog(onConfirm = {
+                            showBackgroundRationaleDialogState = false
+                            LocationPermissionHelper.requestBackgroundLocationPermission(
+                                backgroundLocationPermissionLauncher
+                            )
+                        }, onDismiss = {
+                            showBackgroundRationaleDialogState = false
+                            Timber.w("User dismissed background location rationale.")
+                            // Handle if user explicitly denies/dismisses rationale
+                        })
                     }
                 }
             }
@@ -251,18 +247,14 @@ class MainActivity : ComponentActivity() {
                     if (receivedState == null || token == null) {
                         Timber.e("Auth callback missing token or state. URI: $intent")
                         Toast.makeText(
-                            this,
-                            "Login failed: Missing required parameters",
-                            Toast.LENGTH_LONG
+                            this, "Login failed: Missing required parameters", Toast.LENGTH_LONG
                         ).show()
                         return
                     }
                     if (storedState == null) {
                         Timber.e("Auth callback received, but no stored CSRF state found.")
                         Toast.makeText(
-                            this,
-                            "Login failed: Authentication state expired",
-                            Toast.LENGTH_LONG
+                            this, "Login failed: Authentication state expired", Toast.LENGTH_LONG
                         ).show()
                         return
                     }
@@ -275,16 +267,13 @@ class MainActivity : ComponentActivity() {
 
                         // Add visual feedback for successful login
                         Toast.makeText(
-                            this,
-                            "Login successful! Token received.",
-                            Toast.LENGTH_LONG
+                            this, "Login successful", Toast.LENGTH_LONG
                         ).show()
 
                         // Log token details (truncated for security)
-                        val truncatedToken = if (token.length > 10)
-                            "${token.take(5)}...${token.takeLast(5)}"
-                        else
-                            "token_too_short"
+                        val truncatedToken =
+                            if (token.length > 10) "${token.take(5)}...${token.takeLast(5)}"
+                            else "token_too_short"
                         Timber.d("Auth token received: $token")
 
                         // Refresh auth state in ViewModel
@@ -292,9 +281,7 @@ class MainActivity : ComponentActivity() {
                     } else {
                         Timber.e("CSRF state mismatch! Stored: $storedState, Received: $receivedState. Possible CSRF attack.")
                         Toast.makeText(
-                            this,
-                            "Login failed: Security verification failed",
-                            Toast.LENGTH_LONG
+                            this, "Login failed: Security verification failed", Toast.LENGTH_LONG
                         ).show()
                     }
                 }
@@ -302,9 +289,7 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             Timber.e(e, "Error processing authentication redirect")
             Toast.makeText(
-                this,
-                "Login failed: ${e.message ?: "Unknown error"}",
-                Toast.LENGTH_LONG
+                this, "Login failed: ${e.message ?: "Unknown error"}", Toast.LENGTH_LONG
             ).show()
         }
     }
@@ -547,8 +532,7 @@ class MainActivity : ComponentActivity() {
 
         // Get the package name of a CCT provider
         val packageName = CustomTabsClient.getPackageName(
-            this,
-            null
+            this, null
         ) // Pass null for a list of preferred packages to use the default
 
         if (packageName == null) {
@@ -560,9 +544,7 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {
                 Timber.e(e, "Error launching standard browser intent.")
                 Toast.makeText(
-                    this,
-                    "No browser found to handle authentication.",
-                    Toast.LENGTH_LONG
+                    this, "No browser found to handle authentication.", Toast.LENGTH_LONG
                 ).show()
             }
             return
@@ -595,8 +577,7 @@ fun BackgroundLocationRationaleDialog(onConfirm: () -> Unit, onDismiss: () -> Un
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("No Thanks") }
-        }
-    )
+        })
 }
 
 @Composable
@@ -630,9 +611,7 @@ fun ConnectionStateOverlay(viewModel: BluetoothViewModel) {
                 Button(
                     onClick = {
                         viewModel.processIntent(BluetoothIntent.DisconnectFromDevice)
-                    }
-                ) { Text("OK") }
-            }
-        )
+                    }) { Text("OK") }
+            })
     }
 }
