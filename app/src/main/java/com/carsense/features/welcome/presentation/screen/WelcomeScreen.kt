@@ -50,6 +50,7 @@ import com.carsense.features.welcome.presentation.viewmodel.VehicleSelectionView
 import com.carsense.features.welcome.presentation.viewmodel.WelcomeEvent
 import com.carsense.features.welcome.presentation.viewmodel.WelcomeViewModel
 import com.carsense.ui.theme.CarSenseTheme
+import com.composables.icons.lucide.Car
 import com.composables.icons.lucide.LayoutDashboard
 import com.composables.icons.lucide.Lucide
 import kotlinx.coroutines.launch
@@ -157,18 +158,21 @@ fun WelcomeScreen(
                             )
                         } else {
                             // If no vehicle selected, show a button to select one
-                            Button(
+                            OutlinedButton(
                                 onClick = onViewAllVehicles,
-                                modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary
-                                ),
-                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 56.dp),
                             ) {
+                                Icon(
+                                    imageVector = Lucide.Car,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Select a Vehicle",
+                                    text = "Select a vehicle",
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }
