@@ -36,8 +36,6 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Settings2
 import com.composables.icons.lucide.Share2
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -179,9 +177,7 @@ fun VehicleSelectionCard(
 
                         // Scrollable VIN
                         Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .horizontalScroll(rememberScrollState())
+                            modifier = Modifier.weight(1f)
                         ) {
                             Text(
                                 text = vehicle.vin,
@@ -270,7 +266,7 @@ fun VehicleSelectionCard(
                             DetailRow(
                                 icon = Lucide.Cog,
                                 label = "Transmission",
-                                value = vehicle.transmissionType,
+                                value = formatTransmission(vehicle.transmissionType),
                                 isHighlighted = isSelected
                             )
                             DetailRow(
@@ -320,12 +316,8 @@ private fun DetailRow(
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            // Make value scrollable if too long
-            val scrollState = rememberScrollState()
             Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .horizontalScroll(scrollState)
+                modifier = Modifier.weight(1f)
             ) {
                 Text(
                     text = value,
@@ -334,6 +326,20 @@ private fun DetailRow(
                 )
             }
         }
+    }
+}
+
+/**
+ * Formats transmission type into a shorter abbreviation.
+ * Returns "AT" for automatic, "MT" for manual, or the original value if not recognized.
+ */
+private fun formatTransmission(transmission: String): String {
+    return when {
+        transmission.contains("automatic", ignoreCase = true) -> "AT"
+        transmission.contains("auto", ignoreCase = true) -> "AT"
+        transmission.contains("manual", ignoreCase = true) -> "MT"
+        transmission.contains("stick", ignoreCase = true) -> "MT"
+        else -> transmission
     }
 }
 

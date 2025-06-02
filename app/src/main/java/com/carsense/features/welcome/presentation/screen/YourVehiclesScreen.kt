@@ -21,15 +21,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.background
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
@@ -39,6 +40,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -52,10 +56,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -71,6 +76,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.animation.slideOutHorizontally
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
@@ -241,18 +249,86 @@ fun YourVehiclesScreen(
                                 items(
                                     items = state.vehicles,
                                     key = { vehicle -> vehicle.uuid }) { vehicle ->
-                                    VehicleSelectionCard(
-                                        vehicle = vehicle, onSelect = { uuid ->
-                                            // Pause data loading before navigation
-                                            viewModel.pauseDataLoading()
-                                            viewModel.onEvent(
-                                                VehicleSelectionEvent.SelectVehicle(
-                                                    uuid
+                                    val currentVehicle by rememberUpdatedState(vehicle)
+                                    // Track if this item is being deleted to handle immediate UI feedback
+                                    val isItemBeingDeleted = remember { mutableStateOf(false) }
+                                    val coroutineScope = rememberCoroutineScope()
+
+                                    // Use AnimatedVisibility to animate item removal
+                                    AnimatedVisibility(
+                                        visible = !isItemBeingDeleted.value,
+                                        exit = slideOutHorizontally(
+                                            targetOffsetX = { fullWidth -> -fullWidth },
+                                            animationSpec = tween(durationMillis = 300)
+                                        ) + fadeOut(animationSpec = tween(durationMillis = 300))
+                                    ) {
+                                        val dismissState = rememberSwipeToDismissBoxState(
+                                            confirmValueChange = { dismissValue ->
+                                                if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                                                    // Mark as being deleted immediately for UI update
+                                                    isItemBeingDeleted.value = true
+
+                                                    // Perform actual deletion after UI update
+                                                    coroutineScope.launch {
+                                                        viewModel.onEvent(
+                                                            VehicleSelectionEvent.DeleteVehicle(
+                                                                currentVehicle.uuid
+                                                            )
+                                                        )
+                                                    }
+                                                    true // Confirm the dismiss
+                                                } else {
+                                                    false // Do not dismiss for other directions
+                                                }
+                                            },
+                                            positionalThreshold = { totalDistance -> totalDistance * 0.40f } // Increased from 0.10f to 0.40f
+                                        )
+
+                                        SwipeToDismissBox(
+                                            state = dismissState,
+                                            enableDismissFromStartToEnd = false, // Disable swipe from left to right
+                                            enableDismissFromEndToStart = true,   // Enable swipe from right to left
+                                            backgroundContent = {
+                                                val color = when (dismissState.dismissDirection) {
+                                                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
+                                                    else -> Color.Transparent
+                                                }
+                                                val scale by animateFloatAsState(
+                                                    if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) 1f else 0.75f,
+                                                    label = "dismiss_icon_scale"
                                                 )
+
+                                                Box(
+                                                    Modifier
+                                                        .fillMaxSize()
+                                                        .padding(vertical = 6.dp) // Match the card's vertical padding
+                                                        .clip(RoundedCornerShape(12.dp)) // Match the card's corner shape 
+                                                        .background(color)
+                                                        .padding(horizontal = 20.dp),
+                                                    contentAlignment = Alignment.CenterEnd
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Delete,
+                                                        contentDescription = "Delete Vehicle",
+                                                        modifier = Modifier.scale(scale),
+                                                        tint = MaterialTheme.colorScheme.onErrorContainer
+                                                    )
+                                                }
+                                            }) {
+                                            VehicleSelectionCard(
+                                                vehicle = currentVehicle, onSelect = { uuid ->
+                                                    // Pause data loading before navigation
+                                                    viewModel.pauseDataLoading()
+                                                    viewModel.onEvent(
+                                                        VehicleSelectionEvent.SelectVehicle(
+                                                            uuid
+                                                        )
+                                                    )
+                                                    onBackPressed()
+                                                }, showDetailedInfo = true
                                             )
-                                            onBackPressed()
-                                        }, showDetailedInfo = true
-                                    )
+                                        }
+                                    }
                                 }
                             }
                         }
