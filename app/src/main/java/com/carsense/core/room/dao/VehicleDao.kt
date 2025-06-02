@@ -46,6 +46,9 @@ interface VehicleDao {
     @Query("SELECT * FROM vehicles ORDER BY make ASC, model ASC")
     fun getAllVehicles(): Flow<List<VehicleEntity>>
 
+    @Query("SELECT * FROM vehicles ORDER BY make ASC, model ASC")
+    suspend fun getAllVehiclesSync(): List<VehicleEntity>
+
     @Query("DELETE FROM vehicles WHERE local_id = :localId")
     suspend fun deleteByLocalId(localId: Long): Int
 
@@ -59,4 +62,7 @@ interface VehicleDao {
 
     @Query("SELECT * FROM vehicles ORDER BY local_id DESC LIMIT 1")
     suspend fun getLatestVehicle(): VehicleEntity?
+
+    @Query("DELETE FROM vehicles")
+    suspend fun clearAll(): Int
 }

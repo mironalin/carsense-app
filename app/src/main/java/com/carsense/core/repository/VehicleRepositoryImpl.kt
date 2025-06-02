@@ -186,16 +186,49 @@ class VehicleRepositoryImpl @Inject constructor(
                 val vehicleDtos = response.body()!!
                 Timber.d("refreshVehicles: Successfully fetched ${vehicleDtos.size} vehicles from API")
 
-                // Insert/update all vehicles from API
-                for (dto in vehicleDtos) {
-                    val entity = dto.toEntity()
-                    val existing = vehicleDao.getVehicleByUuid(dto.uuid)
-                    if (existing != null) {
-                        vehicleDao.update(entity)
-                        Timber.d("refreshVehicles: Updated vehicle ${dto.make} ${dto.model} (${dto.uuid})")
-                    } else {
-                        vehicleDao.insert(entity)
-                        Timber.d("refreshVehicles: Inserted new vehicle ${dto.make} ${dto.model} (${dto.uuid})")
+                // Get current vehicles in database to determine which ones to remove
+                val existingVehicles = vehicleDao.getAllVehiclesSync()
+                val apiVehicleUuids = vehicleDtos.map { it.uuid }.toSet()
+                val vehiclesToRemove = existingVehicles.filter { it.uuid !in apiVehicleUuids }
+
+                // If API returns empty list, clear all local vehicles
+                if (vehicleDtos.isEmpty()) {
+                    Timber.d("refreshVehicles: Clearing all local vehicles as API returned empty list")
+                    vehicleDao.clearAll()
+
+                    // Clear selected vehicle
+                    context.dataStore.edit { preferences ->
+                        preferences.remove(selectedVehicleKey)
+                    }
+                } else {
+                    // Insert/update all vehicles from API
+                    for (dto in vehicleDtos) {
+                        val entity = dto.toEntity()
+                        val existing = vehicleDao.getVehicleByUuid(dto.uuid)
+                        if (existing != null) {
+                            vehicleDao.update(entity)
+                            Timber.d("refreshVehicles: Updated vehicle ${dto.make} ${dto.model} (${dto.uuid})")
+                        } else {
+                            vehicleDao.insert(entity)
+                            Timber.d("refreshVehicles: Inserted new vehicle ${dto.make} ${dto.model} (${dto.uuid})")
+                        }
+                    }
+
+                    // Remove vehicles that exist locally but not in API response
+                    if (vehiclesToRemove.isNotEmpty()) {
+                        Timber.d("refreshVehicles: Removing ${vehiclesToRemove.size} vehicles that no longer exist in API")
+                        for (entity in vehiclesToRemove) {
+                            vehicleDao.deleteByUuid(entity.uuid)
+
+                            // If this was the selected vehicle, clear the selection
+                            val selectedVehicleUuid =
+                                context.dataStore.data.firstOrNull()?.get(selectedVehicleKey)
+                            if (selectedVehicleUuid == entity.uuid) {
+                                context.dataStore.edit { preferences ->
+                                    preferences.remove(selectedVehicleKey)
+                                }
+                            }
+                        }
                     }
                 }
 
