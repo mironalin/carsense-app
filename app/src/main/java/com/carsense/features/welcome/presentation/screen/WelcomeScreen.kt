@@ -2,16 +2,18 @@ package com.carsense.features.welcome.presentation.screen
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,6 +27,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,14 +43,17 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carsense.features.welcome.presentation.components.ConnectionDetailsCard
 import com.carsense.features.welcome.presentation.components.DisconnectFooter
-import com.carsense.features.welcome.presentation.components.WelcomeLogo
+import com.carsense.features.welcome.presentation.components.SelectedVehicleCard
 import com.carsense.features.welcome.presentation.components.WelcomeTopBar
+import com.carsense.features.welcome.presentation.viewmodel.VehicleSelectionEvent
+import com.carsense.features.welcome.presentation.viewmodel.VehicleSelectionViewModel
 import com.carsense.features.welcome.presentation.viewmodel.WelcomeEvent
 import com.carsense.features.welcome.presentation.viewmodel.WelcomeViewModel
 import com.carsense.ui.theme.CarSenseTheme
 import com.composables.icons.lucide.LayoutDashboard
 import com.composables.icons.lucide.Lucide
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,146 +64,211 @@ fun WelcomeScreen(
     onSettingsClick: () -> Unit,
     onDarkModeToggle: () -> Unit,
     onLoginClick: () -> Unit,
+    onViewAllVehicles: () -> Unit,
     isLoggedIn: Boolean = false,
     userName: String? = null,
     isConnected: Boolean = false,
     deviceName: String? = null,
-    viewModel: WelcomeViewModel = hiltViewModel()
+    viewModel: WelcomeViewModel = hiltViewModel(),
+    vehicleSelectionViewModel: VehicleSelectionViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val vehicleState by vehicleSelectionViewModel.state.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var isLogoutLoading by remember { mutableStateOf(false) }
     var isDetailsExpanded by remember { mutableStateOf(true) }
+    val scrollState = rememberScrollState()
+
+    // Only refresh vehicles when logged in, and do it once per screen display
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            Timber.d("WelcomeScreen: Refreshing vehicles from backend")
+            vehicleSelectionViewModel.onEvent(VehicleSelectionEvent.RefreshVehicles)
+        }
+    }
+
+    // Clean up when leaving the screen
+    DisposableEffect(Unit) {
+        onDispose {
+            // Any cleanup if needed
+        }
+    }
 
     BackHandler(enabled = true) {}
 
-    Scaffold(
-        snackbarHost = {
-            SnackbarHost(
-                hostState = snackbarHostState,
-                snackbar = { snackbarData ->
-                    Snackbar(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        snackbarData = snackbarData
-                    )
-                }
-            )
-        },
-        topBar = {
-            WelcomeTopBar(
-                isLoggedIn = isLoggedIn,
-                userName = userName,
-                isConnected = isConnected,
-                deviceName = deviceName,
-                isLogoutLoading = isLogoutLoading,
-                onLoginLogoutClick = onLoginClick,
-                onSettingsClick = onSettingsClick,
-                showSnackbar = { message ->
-                    snackbarHostState.showSnackbar(message)
-                }
-            )
-        },
-        bottomBar = {
-            // Only show disconnect button in the footer when connected
-            if (isConnected && isLoggedIn) {
-                DisconnectFooter(
-                    deviceName = deviceName,
-                    onDisconnectClick = onDisconnectClick
+    Scaffold(snackbarHost = {
+        SnackbarHost(
+            hostState = snackbarHostState, snackbar = { snackbarData ->
+                Snackbar(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    snackbarData = snackbarData
                 )
-            }
+            })
+    }, topBar = {
+        WelcomeTopBar(
+            isLoggedIn = isLoggedIn,
+            userName = userName,
+            isConnected = isConnected,
+            deviceName = deviceName,
+            isLogoutLoading = isLogoutLoading,
+            onLoginLogoutClick = onLoginClick,
+            onSettingsClick = onSettingsClick,
+            showSnackbar = { message ->
+                snackbarHostState.showSnackbar(message)
+            })
+    }, bottomBar = {
+        // Only show disconnect button in the footer when connected
+        if (isConnected && isLoggedIn) {
+            DisconnectFooter(
+                deviceName = deviceName, onDisconnectClick = onDisconnectClick
+            )
         }
-    ) { paddingValues ->
+    }) { paddingValues ->
         Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+            modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
         ) {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(horizontal = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
             ) {
-                WelcomeLogo()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 32.dp)
+                        .verticalScroll(scrollState)
+                        .align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // 1. Logo at the top -- disable for now
+                    // WelcomeLogo(modifier = Modifier.fillMaxWidth())
 
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // When not connected, show Connect button
-                if (!isConnected) {
-                    Button(
-                        onClick = {
-                            if (!isLoggedIn) {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Please log in to connect to your OBD2 device")
-                                }
-                            } else {
-                                viewModel.onEvent(WelcomeEvent.Connect)
-                                onConnectClick()
+                    // 2. Selected Vehicle Card if logged in
+                    if (isLoggedIn) {
+                        if (vehicleState.selectedVehicle != null) {
+                            SelectedVehicleCard(
+                                vehicle = vehicleState.selectedVehicle,
+                                onViewAllVehicles = onViewAllVehicles,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            // If no vehicle selected, show a button to select one
+                            Button(
+                                onClick = onViewAllVehicles,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                            ) {
+                                Text(
+                                    text = "Select a Vehicle",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
                             }
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth(0.85f)
-                            .heightIn(min = 56.dp),
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = 2.dp,
-                            pressedElevation = 4.dp
-                        )
-                    ) {
+                        }
+                    }
+
+                    // 3. When not connected, show Connect button
+                    if (!isConnected && isLoggedIn) {
+                        Button(
+                            onClick = {
+                                if (!vehicleState.isVehicleSelected) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Please select a vehicle before connecting")
+                                    }
+                                } else {
+                                    viewModel.onEvent(WelcomeEvent.Connect)
+                                    onConnectClick()
+                                }
+                            },
+                            enabled = vehicleState.isVehicleSelected,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 56.dp),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 2.dp, pressedElevation = 4.dp
+                            )
+                        ) {
+                            Text(
+                                text = "Connect to CarSense",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                    }
+
+                    // 4. When connected and logged in, show details card and dashboard button
+                    if (isConnected && isLoggedIn) {
+                        // Connection details card
+                        ConnectionDetailsCard(
+                            connectionTimeSeconds = state.connectionTimeSeconds,
+                            adapterProtocol = state.adapterProtocol,
+                            adapterFirmware = state.adapterFirmware,
+                            onRefresh = { viewModel.onEvent(WelcomeEvent.RefreshAdapterDetails) })
+
+                        // Go to Dashboard button
+                        OutlinedButton(
+                            onClick = { onDashboardClick() },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 56.dp)
+                        ) {
+                            Icon(
+                                imageVector = Lucide.LayoutDashboard,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Go to Dashboard",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                    }
+
+                    // 5. Not logged in message
+                    if (!isLoggedIn) {
+                        Button(
+                            onClick = onLoginClick,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 56.dp)
+                        ) {
+                            Text(
+                                text = "Login to Continue",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+
                         Text(
-                            text = "Connect to CarSense",
-                            style = MaterialTheme.typography.titleMedium
+                            text = "Login required to connect",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else if (!isConnected && !vehicleState.isVehicleSelected) {
+                        Text(
+                            text = "Vehicle selection required to connect",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                }
-
-                // When connected and logged in, show details card and dashboard button
-                if (isConnected && isLoggedIn) {
-                    // 1. Connection details card first
-                    ConnectionDetailsCard(
-                        connectionTimeSeconds = state.connectionTimeSeconds,
-                        adapterProtocol = state.adapterProtocol,
-                        adapterFirmware = state.adapterFirmware,
-                        onRefresh = { viewModel.onEvent(WelcomeEvent.RefreshAdapterDetails) }
-                    )
-
-                    // 2. Go to Dashboard button second
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedButton(
-                        onClick = { onDashboardClick() },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth(0.85f)
-                            .heightIn(min = 56.dp)
-                    ) {
-                        Icon(
-                            imageVector = Lucide.LayoutDashboard,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Go to Dashboard",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
-                }
-
-                if (!isLoggedIn) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Login required to connect",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }
@@ -212,6 +284,7 @@ fun WelcomeScreenPreviewLightLoggedOut() {
             onSettingsClick = {},
             onDarkModeToggle = {},
             onLoginClick = {},
+            onViewAllVehicles = {},
             isLoggedIn = false,
             userName = null,
             isConnected = false
@@ -228,6 +301,7 @@ fun WelcomeScreenPreviewDarkLoggedOut() {
             onSettingsClick = {},
             onDarkModeToggle = {},
             onLoginClick = {},
+            onViewAllVehicles = {},
             isLoggedIn = false,
             userName = null,
             isConnected = false
@@ -244,6 +318,7 @@ fun WelcomeScreenPreviewLightLoggedIn() {
             onSettingsClick = {},
             onDarkModeToggle = {},
             onLoginClick = {},
+            onViewAllVehicles = {},
             isLoggedIn = true,
             userName = "Alice",
             isConnected = false
@@ -260,6 +335,7 @@ fun WelcomeScreenPreviewDarkLoggedInConnected() {
             onSettingsClick = {},
             onDarkModeToggle = {},
             onLoginClick = {},
+            onViewAllVehicles = {},
             isLoggedIn = true,
             userName = "Bob",
             isConnected = true,
