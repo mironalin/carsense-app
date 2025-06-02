@@ -49,16 +49,12 @@ import com.carsense.core.location.LocationService
 import com.carsense.core.navigation.AppNavigation
 import com.carsense.core.permissions.LocationPermissionHelper
 import com.carsense.core.room.dao.VehicleDao
-import com.carsense.core.room.entity.VehicleEntity
 import com.carsense.features.bluetooth.presentation.intent.BluetoothIntent
 import com.carsense.features.bluetooth.presentation.viewmodel.BluetoothViewModel
 import com.carsense.ui.theme.CarSenseTheme
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.util.UUID
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -102,11 +98,6 @@ class MainActivity : ComponentActivity() {
 
         setupBluetoothPermissionLaunchers()
         setupLocationPermissionLaunchers()
-
-        // Insert a mock vehicle if none exist, for testing purposes.
-        lifecycleScope.launch {
-            insertMockVehicleIfNoneExist()
-        }
 
         // Request Bluetooth permissions on start. Location permissions will also be checked now.
         requestBluetoothPermissions()
@@ -291,36 +282,6 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(
                 this, "Login failed: ${e.message ?: "Unknown error"}", Toast.LENGTH_LONG
             ).show()
-        }
-    }
-
-    private suspend fun insertMockVehicleIfNoneExist() {
-        withContext(Dispatchers.IO) { // Perform DB operations on IO dispatcher
-            val latestVehicle = vehicleDao.getLatestVehicle()
-            if (latestVehicle == null) {
-                Timber.d("No vehicles found. Inserting a mock vehicle for testing.")
-                val mockVehicle = VehicleEntity(
-                    uuid = UUID.randomUUID().toString(),
-                    userId = "test_user_123", // Placeholder user ID
-                    vehicleIdentificationNumber = "TESTVIN" + UUID.randomUUID().toString().take(8),
-                    make = "Ford",
-                    model = "Focus",
-                    year = "2023",
-                    engineDisplacement = "1.6L",
-                    fuelType = "Petrol",
-                    licensePlate = "TESTLP1",
-                    nickname = "My Test Car",
-                    isSynced = false
-                )
-                try {
-                    vehicleDao.insert(mockVehicle)
-                    Timber.i("Mock vehicle inserted: ${mockVehicle.nickname}")
-                } catch (e: Exception) {
-                    Timber.e(e, "Error inserting mock vehicle")
-                }
-            } else {
-                Timber.d("Vehicles exist. Mock vehicle not inserted. Latest: ${latestVehicle.nickname}")
-            }
         }
     }
 
