@@ -152,9 +152,16 @@ fun WelcomeScreen(
                     if (isLoggedIn) {
                         if (vehicleState.selectedVehicle != null) {
                             SelectedVehicleCard(
-                                vehicle = vehicleState.selectedVehicle,
-                                onViewAllVehicles = onViewAllVehicles,
-                                modifier = Modifier.fillMaxWidth()
+                                vehicle = vehicleState.selectedVehicle, onViewAllVehicles = {
+                                    if (isConnected) {
+                                        // Show snackbar instead of navigating if connected to Bluetooth
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("Disconnect from the OBD2 adapter before changing vehicles")
+                                        }
+                                    } else {
+                                        onViewAllVehicles()
+                                    }
+                                }, modifier = Modifier.fillMaxWidth()
                             )
                         } else {
                             // If no vehicle selected, show a button to select one

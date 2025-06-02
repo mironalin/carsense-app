@@ -46,9 +46,9 @@ fun AppNavigation(
             key(authState.isLoggedIn) {
                 WelcomeScreen(
                     onConnectClick = {
-                    // Use single top to avoid duplicating screens in backstack
-                    navController.navigateSingleTop(NavRoutes.DEVICE_LIST)
-                },
+                        // Use single top to avoid duplicating screens in backstack
+                        navController.navigateSingleTop(NavRoutes.DEVICE_LIST)
+                    },
                     onDisconnectClick = {
                         bluetoothViewModel.processIntent(BluetoothIntent.DisconnectFromDevice)
                     },
@@ -56,7 +56,13 @@ fun AppNavigation(
                         navController.navigateSingleTop(NavRoutes.DASHBOARD)
                     },
                     onViewAllVehicles = {
-                        navController.navigateSingleTop(NavRoutes.YOUR_VEHICLES)
+                        if (bluetoothState.isConnected) {
+                            // Show snackbar instead of navigating if connected to Bluetooth
+                            // This will use the snackbarHostState from the WelcomeScreen
+                            // The actual snackbar display is handled in WelcomeScreen.kt
+                        } else {
+                            navController.navigateSingleTop(NavRoutes.YOUR_VEHICLES)
+                        }
                     },
                     onSettingsClick = {
                         // Will implement settings navigation later

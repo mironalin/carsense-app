@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -36,7 +37,6 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Settings2
 import com.composables.icons.lucide.Share2
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 
@@ -45,7 +45,7 @@ fun VehicleSelectionCard(
     modifier: Modifier = Modifier,
     vehicle: Vehicle,
     onSelect: (String) -> Unit,
-    showDetailedInfo: Boolean = false,
+    showDetailedInfo: Boolean = false
 ) {
     val shape = RoundedCornerShape(12.dp)
     val isSelected = vehicle.isSelected
@@ -77,8 +77,10 @@ fun VehicleSelectionCard(
         tonalElevation = if (isSelected) 4.dp else 1.dp,
         shadowElevation = if (isSelected) 2.dp else 0.dp,
         border = BorderStroke(
-            width = 1.dp, color = if (isSelected) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+            width = 1.dp,
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(
+                alpha = 0.3f
+            )
         )
     ) {
         Column(

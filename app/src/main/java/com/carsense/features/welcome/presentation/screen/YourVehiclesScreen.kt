@@ -95,6 +95,19 @@ fun YourVehiclesScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
 
+    // Create a SnackbarHostState
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Collect vehicle state
+    val state by viewModel.state.collectAsState()
+
+    // Show error messages in snackbar
+    LaunchedEffect(state.error) {
+        state.error?.let {
+            snackbarHostState.showSnackbar(message = it)
+        }
+    }
+
     // First-time initialization
     LaunchedEffect(Unit) {
         if (!isInitialized) {
@@ -158,10 +171,6 @@ fun YourVehiclesScreen(
         }
     }
 
-    // Collect the state safely
-    val state by viewModel.state.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-
     // Pull to refresh state
     val refreshing = state.isLoading
     val pullRefreshState = rememberPullRefreshState(
@@ -171,19 +180,24 @@ fun YourVehiclesScreen(
             }
         })
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, topBar = {
-        TopAppBar(
-            title = { Text("Your Vehicles") }, navigationIcon = {
-            BackButton(onClick = {
-                // Ensure data loading is paused before navigation
-                viewModel.pauseDataLoading()
-                onBackPressed()
-            })
-        }, colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-        )
-    }) { paddingValues ->
+    Scaffold(
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
+        },
+        topBar = {
+            TopAppBar(
+                title = { Text("Your Vehicles") }, navigationIcon = {
+                    BackButton(onClick = {
+                        // Ensure data loading is paused before navigation
+                        viewModel.pauseDataLoading()
+                        onBackPressed()
+                    })
+                }, colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+        }
+    ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -314,9 +328,11 @@ fun YourVehiclesScreen(
                                                         tint = MaterialTheme.colorScheme.onErrorContainer
                                                     )
                                                 }
-                                            }) {
+                                            }
+                                        ) {
                                             VehicleSelectionCard(
-                                                vehicle = currentVehicle, onSelect = { uuid ->
+                                                vehicle = currentVehicle,
+                                                onSelect = { uuid ->
                                                     // Pause data loading before navigation
                                                     viewModel.pauseDataLoading()
                                                     viewModel.onEvent(
@@ -325,7 +341,8 @@ fun YourVehiclesScreen(
                                                         )
                                                     )
                                                     onBackPressed()
-                                                }, showDetailedInfo = true
+                                                },
+                                                showDetailedInfo = true
                                             )
                                         }
                                     }

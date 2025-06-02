@@ -9,6 +9,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -305,6 +306,16 @@ class VehicleSelectionViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    // Add function to show snackbar message
+    fun showSnackbar(message: String) {
+        _state.update { it.copy(error = message) }
+        // Clear the message after a delay
+        viewModelScope.launch {
+            delay(3000)
+            _state.update { it.copy(error = null) }
         }
     }
 
