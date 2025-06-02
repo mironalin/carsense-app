@@ -3,6 +3,8 @@ package com.carsense.core.di
 import android.content.Context
 import com.carsense.BuildConfig
 import com.carsense.core.auth.TokenStorageService
+import com.carsense.core.network.AuthApiService
+import com.carsense.core.network.VehicleApiService
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.Module
@@ -24,8 +26,8 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    // Define your API base URL here
-    private const val API_BASE_URL = "https://api.carsense.workers.dev/api/" // Ensure trailing slash
+    private const val API_BASE_URL =
+        "https://api.carsense.workers.dev/api/" // Ensure trailing slash
 
     @Provides
     @Singleton
@@ -36,17 +38,16 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
-        @ApplicationContext context: Context,
-        authInterceptor: AuthInterceptor
+        @ApplicationContext context: Context, authInterceptor: AuthInterceptor
     ): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor { message ->
             Timber.tag("OkHttp").d(message)
         }.apply {
-            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
+            level =
+                if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
         }
 
-        return OkHttpClient.Builder()
-            .addInterceptor(authInterceptor) // Adds auth token to requests
+        return OkHttpClient.Builder().addInterceptor(authInterceptor) // Adds auth token to requests
             .addInterceptor(loggingInterceptor) // Logs network requests and responses
             // Add other configurations like timeouts if needed
             // .connectTimeout(30, TimeUnit.SECONDS)
@@ -67,17 +68,20 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient, moshi: Moshi): Retrofit {
-        return Retrofit.Builder()
-            .baseUrl(API_BASE_URL)
-            .client(okHttpClient)
-            .addConverterFactory(MoshiConverterFactory.create(moshi))
-            .build()
+        return Retrofit.Builder().baseUrl(API_BASE_URL).client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi)).build()
     }
 
     @Provides
     @Singleton
-    fun provideAuthApiService(retrofit: Retrofit): com.carsense.core.network.AuthApiService { // FQN to avoid import clash if any
-        return retrofit.create(com.carsense.core.network.AuthApiService::class.java)
+    fun provideAuthApiService(retrofit: Retrofit): AuthApiService {
+        return retrofit.create(AuthApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideVehicleApiService(retrofit: Retrofit): VehicleApiService {
+        return retrofit.create(VehicleApiService::class.java)
     }
 }
 
@@ -93,9 +97,11 @@ class AuthInterceptor(private val tokenStorageService: TokenStorageService) : In
         val requestBuilder = originalRequest.newBuilder()
         if (token != null) {
             requestBuilder.header("Authorization", "Bearer $token")
-            Timber.tag("AuthInterceptor").d("Authorization token added to request for ${originalRequest.url}")
+            Timber.tag("AuthInterceptor")
+                .d("Authorization token added to request for ${originalRequest.url}")
         } else {
-            Timber.tag("AuthInterceptor").d("No auth token found, request to ${originalRequest.url} proceeds without token.")
+            Timber.tag("AuthInterceptor")
+                .d("No auth token found, request to ${originalRequest.url} proceeds without token.")
         }
 
         // Add other common headers if needed
