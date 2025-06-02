@@ -12,6 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +32,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,9 +48,10 @@ import com.carsense.features.welcome.presentation.components.VehicleSelectionCar
 import com.carsense.features.welcome.presentation.viewmodel.VehicleSelectionEvent
 import com.carsense.features.welcome.presentation.viewmodel.VehicleSelectionViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun YourVehiclesScreen(
     onBackPressed: () -> Unit,
@@ -58,6 +64,7 @@ fun YourVehiclesScreen(
 
     // Handle lifecycle events
     val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
 
     // First-time initialization
     LaunchedEffect(Unit) {
@@ -126,17 +133,26 @@ fun YourVehiclesScreen(
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Pull to refresh state
+    val refreshing = state.isLoading
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = refreshing, onRefresh = {
+            coroutineScope.launch {
+                viewModel.onEvent(VehicleSelectionEvent.RefreshVehicles)
+            }
+        })
+
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, topBar = {
         TopAppBar(
             title = { Text("Your Vehicles") }, navigationIcon = {
-                BackButton(onClick = {
-                    // Ensure data loading is paused before navigation
-                    viewModel.pauseDataLoading()
-                    onBackPressed()
-                })
-            }, colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
+            BackButton(onClick = {
+                // Ensure data loading is paused before navigation
+                viewModel.pauseDataLoading()
+                onBackPressed()
+            })
+        }, colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
         )
     }) { paddingValues ->
         Box(
@@ -159,62 +175,81 @@ fun YourVehiclesScreen(
             AnimatedVisibility(
                 visible = showContent, enter = fadeIn(initialAlpha = 0.3f), exit = fadeOut()
             ) {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp)
+                        .pullRefresh(pullRefreshState)
                 ) {
-                    if (state.vehicles.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        if (state.vehicles.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (state.isLoading) {
+                                    CircularProgressIndicator()
+                                } else {
+                                    Text(
+                                        text = "No vehicles found. Add a vehicle to continue.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(bottom = 80.dp)
+                            ) {
+                                items(
+                                    items = state.vehicles,
+                                    key = { vehicle -> vehicle.uuid }) { vehicle ->
+                                    VehicleSelectionCard(
+                                        vehicle = vehicle, onSelect = { uuid ->
+                                            // Pause data loading before navigation
+                                            viewModel.pauseDataLoading()
+                                            viewModel.onEvent(
+                                                VehicleSelectionEvent.SelectVehicle(
+                                                    uuid
+                                                )
+                                            )
+                                            onBackPressed()
+                                        }, showDetailedInfo = true
+                                    )
+                                }
+                            }
+                        }
+
+                        // Add vehicle button
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f)
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
+                                .padding(vertical = 16.dp)
                         ) {
-                            if (state.isLoading) {
-                                CircularProgressIndicator()
-                            } else {
-                                Text(
-                                    text = "No vehicles found. Add a vehicle to continue.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(bottom = 80.dp)
-                        ) {
-                            items(
-                                items = state.vehicles,
-                                key = { vehicle -> vehicle.uuid }) { vehicle ->
-                                VehicleSelectionCard(
-                                    vehicle = vehicle, onSelect = { uuid ->
-                                        // Pause data loading before navigation
-                                        viewModel.pauseDataLoading()
-                                        viewModel.onEvent(VehicleSelectionEvent.SelectVehicle(uuid))
-                                        onBackPressed()
-                                    }, showDetailedInfo = true
-                                )
-                            }
+                            AddVehicleButton(
+                                onClick = {
+                                    // Pause data loading before navigating to Add Vehicle screen
+                                    viewModel.pauseDataLoading()
+                                    onAddVehicle()
+                                })
                         }
                     }
 
-                    // Add vehicle button
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp)
-                    ) {
-                        AddVehicleButton(
-                            onClick = {
-                                // Pause data loading before navigating to Add Vehicle screen
-                                viewModel.pauseDataLoading()
-                                onAddVehicle()
-                            })
-                    }
+                    // Pull refresh indicator
+                    PullRefreshIndicator(
+                        refreshing = refreshing,
+                        state = pullRefreshState,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                        backgroundColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
