@@ -7,6 +7,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+import androidx.core.content.edit
 
 @Singleton
 class TokenStorageService @Inject constructor(@ApplicationContext private val context: Context) {
@@ -18,9 +19,7 @@ class TokenStorageService @Inject constructor(@ApplicationContext private val co
     }
 
     private val masterKey: MasterKey by lazy {
-        MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
+        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
     }
 
     private val sharedPreferences by lazy {
@@ -38,18 +37,17 @@ class TokenStorageService @Inject constructor(@ApplicationContext private val co
             // This is not ideal for production but can prevent crashes during development/testing issues
             // Consider a more robust error handling or app state for production.
             context.getSharedPreferences(
-                PREF_FILE_NAME + "_unencrypted_fallback",
-                Context.MODE_PRIVATE
+                PREF_FILE_NAME + "_unencrypted_fallback", Context.MODE_PRIVATE
             )
         }
     }
 
     fun saveAuthToken(token: String?) {
         if (token == null) {
-            sharedPreferences.edit().remove(KEY_AUTH_TOKEN).apply()
+            sharedPreferences.edit { remove(KEY_AUTH_TOKEN) }
             Timber.d("Auth token cleared.")
         } else {
-            sharedPreferences.edit().putString(KEY_AUTH_TOKEN, token).apply()
+            sharedPreferences.edit { putString(KEY_AUTH_TOKEN, token) }
             Timber.d("Auth token saved.")
         }
     }
@@ -63,7 +61,7 @@ class TokenStorageService @Inject constructor(@ApplicationContext private val co
     }
 
     fun saveCsrfState(state: String) {
-        sharedPreferences.edit().putString(KEY_CSRF_STATE, state).apply()
+        sharedPreferences.edit { putString(KEY_CSRF_STATE, state) }
         Timber.d("CSRF state saved.")
     }
 
@@ -72,7 +70,7 @@ class TokenStorageService @Inject constructor(@ApplicationContext private val co
     }
 
     fun clearCsrfState() {
-        sharedPreferences.edit().remove(KEY_CSRF_STATE).apply()
+        sharedPreferences.edit { remove(KEY_CSRF_STATE) }
         Timber.d("CSRF state cleared.")
     }
 } 
