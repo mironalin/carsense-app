@@ -34,7 +34,7 @@ abstract class AppDatabase : RoomDatabase() {
                         )
                             // .addMigrations(MIGRATION_1_2) // Example: Add migrations
                             // if needed later
-                            .fallbackToDestructiveMigration() // If migrations are not
+                            .fallbackToDestructiveMigration(false) // If migrations are not
                             // provided, recreate the
                             // DB (not for production)
                             .build()
