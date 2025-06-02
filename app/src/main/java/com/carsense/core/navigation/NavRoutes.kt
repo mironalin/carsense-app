@@ -9,4 +9,6 @@ object NavRoutes {
     const val DTC = "dtc"
     const val SENSORS = "sensors"
     const val LOCATION = "location"
+    const val YOUR_VEHICLES = "your_vehicles"
+    const val ADD_VEHICLE = "add_vehicle"
 }

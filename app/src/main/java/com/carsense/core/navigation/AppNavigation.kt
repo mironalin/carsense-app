@@ -1,10 +1,13 @@
 package com.carsense.core.navigation
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -16,7 +19,9 @@ import com.carsense.features.dashboard.presentation.screen.DashboardScreen
 import com.carsense.features.dtc.presentation.screen.DTCScreen
 import com.carsense.features.location.presentation.screen.LocationScreen
 import com.carsense.features.sensors.presentation.screen.SensorsScreen
+import com.carsense.features.welcome.presentation.screen.AddVehicleScreen
 import com.carsense.features.welcome.presentation.screen.WelcomeScreen
+import com.carsense.features.welcome.presentation.screen.YourVehiclesScreen
 import timber.log.Timber
 
 @Composable
@@ -41,14 +46,17 @@ fun AppNavigation(
             key(authState.isLoggedIn) {
                 WelcomeScreen(
                     onConnectClick = {
-                        // Use single top to avoid duplicating screens in backstack
-                        navController.navigateSingleTop(NavRoutes.DEVICE_LIST)
-                    },
+                    // Use single top to avoid duplicating screens in backstack
+                    navController.navigateSingleTop(NavRoutes.DEVICE_LIST)
+                },
                     onDisconnectClick = {
                         bluetoothViewModel.processIntent(BluetoothIntent.DisconnectFromDevice)
                     },
                     onDashboardClick = {
                         navController.navigateSingleTop(NavRoutes.DASHBOARD)
+                    },
+                    onViewAllVehicles = {
+                        navController.navigateSingleTop(NavRoutes.YOUR_VEHICLES)
                     },
                     onSettingsClick = {
                         // Will implement settings navigation later
@@ -64,9 +72,23 @@ fun AppNavigation(
                         bluetoothState.pairedDevices.firstOrNull { it.address == bluetoothState.connectedDeviceAddress }?.name
                             ?: bluetoothState.scannedDevices.firstOrNull { it.address == bluetoothState.connectedDeviceAddress }?.name
                             ?: bluetoothState.connectedDeviceAddress
-                    }
-                )
+                    })
             }
+        }
+
+        // Your Vehicles Screen
+        animatedComposable(NavRoutes.YOUR_VEHICLES) {
+            YourVehiclesScreen(
+                onBackPressed = { navController.navigateUp() },
+                onAddVehicle = { navController.navigateSingleTop(NavRoutes.ADD_VEHICLE) })
+        }
+
+        // Add Vehicle Screen
+        animatedComposable(NavRoutes.ADD_VEHICLE) {
+            AddVehicleScreen(onBackPressed = { navController.navigateUp() }, onVehicleAdded = {
+                // Navigate back to Your Vehicles screen after adding a vehicle
+                navController.navigateUp()
+            })
         }
 
         // Device List Screen
@@ -86,8 +108,7 @@ fun AppNavigation(
                 onBackPressed = {
                     // Clean navigation back to previous screen
                     navController.navigateUp()
-                }
-            )
+                })
         }
 
         // Dashboard Screen
@@ -104,19 +125,15 @@ fun AppNavigation(
                 },
                 navigateToDTC = { navController.navigate(NavRoutes.DTC) },
                 navigateToSensors = { navController.navigate(NavRoutes.SENSORS) },
-                navigateToLocation = { navController.navigate(NavRoutes.LOCATION) }
-            )
+                navigateToLocation = { navController.navigate(NavRoutes.LOCATION) })
         }
 
         // DTC Screen
         animatedComposable(NavRoutes.DTC) {
-            DTCScreen(
-                onBackPressed = { navController.navigateUp() },
-                onErrorClick = { code ->
-                    // Will implement DTC detail screen later
-                    // navController.navigate("${NavRoutes.DTC_DETAIL}/$code")
-                }
-            )
+            DTCScreen(onBackPressed = { navController.navigateUp() }, onErrorClick = { code ->
+                // Will implement DTC detail screen later
+                // navController.navigate("${NavRoutes.DTC_DETAIL}/$code")
+            })
         }
 
         // Sensors Screen
