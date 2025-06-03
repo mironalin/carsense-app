@@ -5,7 +5,6 @@ import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
 data class VehicleDto(
-    val id: Int,
     val uuid: String,
     @Json(name = "ownerId") val ownerId: String,
     val vin: String,

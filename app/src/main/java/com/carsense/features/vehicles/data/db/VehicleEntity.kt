@@ -7,16 +7,13 @@ import androidx.room.PrimaryKey
 import java.util.UUID
 
 @Entity(
-    tableName = "vehicles", indices = [Index(value = ["server_id"], unique = true), Index(
-        value = ["uuid"], unique = true
-    ), Index(
-        value = ["vehicle_identification_number"], unique = true
-    ) // VIN should be unique
+    tableName = "vehicles", indices = [
+        Index(value = ["uuid"], unique = true),
+        Index(value = ["vehicle_identification_number"], unique = true) // VIN should be unique
     ]
 )
 data class VehicleEntity(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "local_id") val localId: Long = 0,
-    @ColumnInfo(name = "server_id") val serverId: Int? = null, // From Neon DB, nullable until synced
     @ColumnInfo(name = "uuid") val uuid: String = UUID.randomUUID()
         .toString(), // Client-generated UUID
 

@@ -4,7 +4,6 @@ package com.carsense.features.vehicles.domain.model
  * Domain model for a Vehicle.
  */
 data class Vehicle(
-    val id: Int = 0,
     val uuid: String = "",
     val ownerId: String = "",
     val vin: String = "",

@@ -308,7 +308,6 @@ class VehicleRepositoryImpl @Inject constructor(
 
     private fun VehicleDto.toEntity(): VehicleEntity {
         return VehicleEntity(
-            serverId = this.id,
             uuid = this.uuid,
             userId = this.ownerId,
             vehicleIdentificationNumber = this.vin,
@@ -327,7 +326,6 @@ class VehicleRepositoryImpl @Inject constructor(
 
     private fun VehicleEntity.toDomainModel(isSelected: Boolean = false): Vehicle {
         return Vehicle(
-            id = serverId ?: 0,
             uuid = uuid,
             ownerId = userId ?: "",
             vin = vehicleIdentificationNumber ?: "",

@@ -18,26 +18,17 @@ interface VehicleDao {
     @Update
     suspend fun update(vehicle: VehicleEntity): Int
 
-    // Use this to update local vehicle with server_id and set is_synced = true after successful
-    // sync
+    // Mark a vehicle as synced with the server
     @Query(
-        "UPDATE vehicles SET server_id = :serverId, is_synced = 1, updated_at_ms = :updatedAt WHERE local_id = :localId"
+        "UPDATE vehicles SET is_synced = 1, updated_at_ms = :updatedAt WHERE uuid = :uuid"
     )
-    suspend fun markAsSyncedAndSetServerId(localId: Long, serverId: Int, updatedAt: Long): Int
-
-    @Query(
-        "UPDATE vehicles SET server_id = :serverId, is_synced = 1, updated_at_ms = :updatedAt WHERE uuid = :uuid"
-    )
-    suspend fun markAsSyncedAndSetServerIdByUuid(uuid: String, serverId: Int, updatedAt: Long): Int
+    suspend fun markAsSynced(uuid: String, updatedAt: Long): Int
 
     @Query("SELECT * FROM vehicles WHERE local_id = :localId")
     suspend fun getVehicleByLocalId(localId: Long): VehicleEntity?
 
     @Query("SELECT * FROM vehicles WHERE uuid = :uuid")
     suspend fun getVehicleByUuid(uuid: String): VehicleEntity?
-
-    @Query("SELECT * FROM vehicles WHERE server_id = :serverId")
-    suspend fun getVehicleByServerId(serverId: Int): VehicleEntity?
 
     @Query("SELECT * FROM vehicles WHERE is_synced = 0 ORDER BY created_at_ms ASC")
     fun getUnsyncedVehicles(): Flow<List<VehicleEntity>>
