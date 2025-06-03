@@ -1,13 +1,10 @@
 package com.carsense.core.navigation
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
-import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -19,9 +16,9 @@ import com.carsense.features.dashboard.presentation.screen.DashboardScreen
 import com.carsense.features.dtc.presentation.screen.DTCScreen
 import com.carsense.features.location.presentation.screen.LocationScreen
 import com.carsense.features.sensors.presentation.screen.SensorsScreen
-import com.carsense.features.welcome.presentation.screen.AddVehicleScreen
+import com.carsense.features.vehicles.presentation.screen.AddVehicleScreen
 import com.carsense.features.welcome.presentation.screen.WelcomeScreen
-import com.carsense.features.welcome.presentation.screen.YourVehiclesScreen
+import com.carsense.features.vehicles.presentation.screen.YourVehiclesScreen
 import timber.log.Timber
 
 @Composable

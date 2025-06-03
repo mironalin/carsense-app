@@ -1,19 +1,18 @@
-package com.carsense.core.repository
+package com.carsense.features.vehicles.data.repository
 
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
-import com.carsense.core.model.Vehicle
-import com.carsense.core.network.CreateVehicleRequest
-import com.carsense.core.network.UpdateVehicleRequest
-import com.carsense.core.network.VehicleApiService
-import com.carsense.core.network.VehicleDto
-import com.carsense.core.room.dao.VehicleDao
-import com.carsense.core.room.entity.VehicleEntity
+import com.carsense.features.vehicles.data.api.CreateVehicleRequest
+import com.carsense.features.vehicles.data.api.UpdateVehicleRequest
+import com.carsense.features.vehicles.data.api.VehicleApiService
+import com.carsense.features.vehicles.data.api.VehicleDto
+import com.carsense.features.vehicles.data.dataStore
+import com.carsense.features.vehicles.data.db.VehicleDao
+import com.carsense.features.vehicles.data.db.VehicleEntity
+import com.carsense.features.vehicles.domain.model.Vehicle
+import com.carsense.features.vehicles.domain.repository.VehicleRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -23,9 +22,6 @@ import kotlinx.coroutines.flow.map
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
-
-// Define the DataStore at the file level
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "vehicle_preferences")
 
 @Singleton
 class VehicleRepositoryImpl @Inject constructor(
@@ -39,7 +35,7 @@ class VehicleRepositoryImpl @Inject constructor(
     override fun getAllVehicles(): Flow<List<Vehicle>> {
         return combine(
             vehicleDao.getAllVehicles(), context.dataStore.data.catch { e ->
-                Timber.e(e, "Error reading preferences")
+                Timber.Forest.e(e, "Error reading preferences")
                 emit(emptyPreferences())
             }) { vehicles, preferences ->
             val selectedVehicleUuid = preferences[selectedVehicleKey]
@@ -300,7 +296,7 @@ class VehicleRepositoryImpl @Inject constructor(
 
     override fun isVehicleSelected(): Flow<Boolean> {
         return context.dataStore.data.catch { e ->
-            Timber.e(e, "Error reading preferences")
+            Timber.Forest.e(e, "Error reading preferences")
             emit(emptyPreferences())
         }.map { preferences ->
             val uuid = preferences[selectedVehicleKey]
@@ -348,4 +344,4 @@ class VehicleRepositoryImpl @Inject constructor(
             isSelected = isSelected
         )
     }
-} 
+}

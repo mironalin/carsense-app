@@ -1,4 +1,4 @@
-package com.carsense.features.welcome.presentation.components
+package com.carsense.features.vehicles.presentation.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -28,7 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.carsense.core.model.Vehicle
+import com.carsense.features.vehicles.domain.model.Vehicle
 import com.composables.icons.lucide.Car
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Cog

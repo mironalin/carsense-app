@@ -1,4 +1,4 @@
-package com.carsense.core.model
+package com.carsense.features.vehicles.domain.model
 
 /**
  * Provides common car makes and models data for the application.

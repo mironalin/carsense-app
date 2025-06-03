@@ -21,7 +21,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -43,10 +42,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carsense.features.welcome.presentation.components.ConnectionDetailsCard
 import com.carsense.features.welcome.presentation.components.DisconnectFooter
-import com.carsense.features.welcome.presentation.components.SelectedVehicleCard
+import com.carsense.features.vehicles.presentation.components.SelectedVehicleCard
 import com.carsense.features.welcome.presentation.components.WelcomeTopBar
-import com.carsense.features.welcome.presentation.viewmodel.VehicleSelectionEvent
-import com.carsense.features.welcome.presentation.viewmodel.VehicleSelectionViewModel
+import com.carsense.features.vehicles.presentation.viewmodel.VehicleSelectionEvent
+import com.carsense.features.vehicles.presentation.viewmodel.VehicleSelectionViewModel
 import com.carsense.features.welcome.presentation.viewmodel.WelcomeEvent
 import com.carsense.features.welcome.presentation.viewmodel.WelcomeViewModel
 import com.carsense.ui.theme.CarSenseTheme

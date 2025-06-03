@@ -1,4 +1,4 @@
-package com.carsense.core.network
+package com.carsense.features.vehicles.data.api
 
 import retrofit2.Response
 import retrofit2.http.Body

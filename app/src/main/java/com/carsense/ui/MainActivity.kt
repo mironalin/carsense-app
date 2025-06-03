@@ -48,7 +48,7 @@ import com.carsense.core.auth.TokenStorageService
 import com.carsense.core.location.LocationService
 import com.carsense.core.navigation.AppNavigation
 import com.carsense.core.permissions.LocationPermissionHelper
-import com.carsense.core.room.dao.VehicleDao
+import com.carsense.features.vehicles.data.db.VehicleDao
 import com.carsense.features.bluetooth.presentation.intent.BluetoothIntent
 import com.carsense.features.bluetooth.presentation.viewmodel.BluetoothViewModel
 import com.carsense.ui.theme.CarSenseTheme

@@ -1,9 +1,9 @@
-package com.carsense.features.welcome.presentation.viewmodel
+package com.carsense.features.vehicles.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.carsense.core.model.Vehicle
-import com.carsense.core.repository.VehicleRepository
+import com.carsense.features.vehicles.domain.model.Vehicle
+import com.carsense.features.vehicles.domain.repository.VehicleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job

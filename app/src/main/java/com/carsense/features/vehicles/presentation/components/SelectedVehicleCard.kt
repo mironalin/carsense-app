@@ -1,4 +1,4 @@
-package com.carsense.features.welcome.presentation.components
+package com.carsense.features.vehicles.presentation.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -37,7 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.carsense.core.model.Vehicle
+import com.carsense.features.vehicles.domain.model.Vehicle
 import com.carsense.ui.theme.CarSenseTheme
 import com.composables.icons.lucide.Car
 import com.composables.icons.lucide.ChevronDown

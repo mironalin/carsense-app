@@ -1,4 +1,4 @@
-package com.carsense.features.welcome.presentation.screen
+package com.carsense.features.vehicles.presentation.screen
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -68,11 +68,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.carsense.features.welcome.presentation.components.AddVehicleButton
+import com.carsense.features.vehicles.presentation.components.AddVehicleButton
 import com.carsense.features.welcome.presentation.components.BackButton
-import com.carsense.features.welcome.presentation.components.VehicleSelectionCard
-import com.carsense.features.welcome.presentation.viewmodel.VehicleSelectionEvent
-import com.carsense.features.welcome.presentation.viewmodel.VehicleSelectionViewModel
+import com.carsense.features.vehicles.presentation.components.VehicleSelectionCard
+import com.carsense.features.vehicles.presentation.viewmodel.VehicleSelectionEvent
+import com.carsense.features.vehicles.presentation.viewmodel.VehicleSelectionViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -80,7 +80,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.layout.heightIn
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable

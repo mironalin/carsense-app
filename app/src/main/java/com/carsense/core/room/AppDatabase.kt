@@ -5,9 +5,9 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.carsense.core.room.dao.LocationPointDao
-import com.carsense.core.room.dao.VehicleDao
+import com.carsense.features.vehicles.data.db.VehicleDao
 import com.carsense.core.room.entity.LocationPointEntity
-import com.carsense.core.room.entity.VehicleEntity
+import com.carsense.features.vehicles.data.db.VehicleEntity
 
 @Database(
     entities = [VehicleEntity::class, LocationPointEntity::class],

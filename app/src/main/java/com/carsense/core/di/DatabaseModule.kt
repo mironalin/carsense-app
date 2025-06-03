@@ -4,7 +4,7 @@ import android.content.Context
 import com.carsense.core.auth.TokenStorageService
 import com.carsense.core.room.AppDatabase
 import com.carsense.core.room.dao.LocationPointDao
-import com.carsense.core.room.dao.VehicleDao
+import com.carsense.features.vehicles.data.db.VehicleDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

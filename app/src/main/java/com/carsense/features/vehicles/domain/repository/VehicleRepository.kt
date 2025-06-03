@@ -1,6 +1,6 @@
-package com.carsense.core.repository
+package com.carsense.features.vehicles.domain.repository
 
-import com.carsense.core.model.Vehicle
+import com.carsense.features.vehicles.domain.model.Vehicle
 import kotlinx.coroutines.flow.Flow
 
 /**

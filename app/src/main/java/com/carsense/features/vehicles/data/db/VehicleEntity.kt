@@ -1,4 +1,4 @@
-package com.carsense.core.room.entity
+package com.carsense.features.vehicles.data.db
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity

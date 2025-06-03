@@ -1,4 +1,4 @@
-package com.carsense.features.welcome.presentation.components
+package com.carsense.features.vehicles.presentation.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -17,7 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.carsense.features.welcome.presentation.viewmodel.VehicleSelectionViewModel
+import com.carsense.features.vehicles.presentation.viewmodel.VehicleSelectionViewModel
 
 @Composable
 fun VehicleSelectionSection(

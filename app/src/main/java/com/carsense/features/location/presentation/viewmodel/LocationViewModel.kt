@@ -3,7 +3,7 @@ package com.carsense.features.location.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carsense.core.room.dao.LocationPointDao
-import com.carsense.core.room.dao.VehicleDao
+import com.carsense.features.vehicles.data.db.VehicleDao
 import com.carsense.core.room.entity.LocationPointEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow

@@ -4,7 +4,7 @@ import android.content.Context
 import com.carsense.BuildConfig
 import com.carsense.core.auth.TokenStorageService
 import com.carsense.core.network.AuthApiService
-import com.carsense.core.network.VehicleApiService
+import com.carsense.features.vehicles.data.api.VehicleApiService
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.Module

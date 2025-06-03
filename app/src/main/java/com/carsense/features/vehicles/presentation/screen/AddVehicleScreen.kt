@@ -1,4 +1,4 @@
-package com.carsense.features.welcome.presentation.screen
+package com.carsense.features.vehicles.presentation.screen
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -22,11 +22,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.carsense.core.model.Vehicle
-import com.carsense.core.model.VehicleBrandsAndModels
+import com.carsense.features.vehicles.domain.model.Vehicle
+import com.carsense.features.vehicles.domain.model.VehicleBrandsAndModels
 import com.carsense.features.welcome.presentation.components.BackButton
-import com.carsense.features.welcome.presentation.viewmodel.VehicleSelectionEvent
-import com.carsense.features.welcome.presentation.viewmodel.VehicleSelectionViewModel
+import com.carsense.features.vehicles.presentation.viewmodel.VehicleSelectionEvent
+import com.carsense.features.vehicles.presentation.viewmodel.VehicleSelectionViewModel
 import kotlinx.coroutines.delay
 import timber.log.Timber
 import java.util.*
@@ -138,13 +138,13 @@ fun AddVehicleScreen(
                     options.forEach { option ->
                         DropdownMenuItem(
                             text = {
-                            Text(
-                                text = option,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = if (option == value) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface
-                            )
-                        },
+                                Text(
+                                    text = option,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = if (option == value) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface
+                                )
+                            },
                             onClick = {
                                 onOptionSelected(option)
                                 onDismissRequest()
@@ -346,14 +346,14 @@ fun AddVehicleScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Add Vehicle") }, navigationIcon = {
-                BackButton(onClick = {
-                    Timber.d("AddVehicleScreen: Back button pressed, pausing data loading")
-                    viewModel.pauseDataLoading() // Pause data loading before navigation
-                    onBackPressed()
-                })
-            }, colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
+                    BackButton(onClick = {
+                        Timber.d("AddVehicleScreen: Back button pressed, pausing data loading")
+                        viewModel.pauseDataLoading() // Pause data loading before navigation
+                        onBackPressed()
+                    })
+                }, colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         }) { paddingValues ->
         Box(

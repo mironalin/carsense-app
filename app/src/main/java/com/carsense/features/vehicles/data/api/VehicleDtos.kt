@@ -1,4 +1,4 @@
-package com.carsense.core.network
+package com.carsense.features.vehicles.data.api
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass

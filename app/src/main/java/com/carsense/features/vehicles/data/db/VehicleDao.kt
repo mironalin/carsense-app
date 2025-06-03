@@ -1,11 +1,10 @@
-package com.carsense.core.room.dao
+package com.carsense.features.vehicles.data.db
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
-import com.carsense.core.room.entity.VehicleEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
