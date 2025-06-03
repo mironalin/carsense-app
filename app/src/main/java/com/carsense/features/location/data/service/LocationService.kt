@@ -26,8 +26,8 @@ interface LocationService {
     fun stopLocationUpdates()
 
     companion object {
-        const val DEFAULT_UPDATE_INTERVAL = 5000L // 5 seconds
-        const val FASTEST_UPDATE_INTERVAL = 2000L // 2 seconds, if available sooner
+        const val DEFAULT_UPDATE_INTERVAL = 2000L // 2 seconds (updated from 5 seconds)
+        const val FASTEST_UPDATE_INTERVAL = 1000L  // 1 second (updated from 2 seconds)
     }
 }
 

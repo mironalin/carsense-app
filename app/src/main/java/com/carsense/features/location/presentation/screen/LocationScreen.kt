@@ -1,5 +1,10 @@
 package com.carsense.features.location.presentation.screen
 
+import android.content.Context
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,18 +17,26 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -32,11 +45,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.carsense.core.room.entity.LocationPointEntity
 import com.carsense.features.location.presentation.viewmodel.LocationViewModel
 import com.carsense.features.welcome.presentation.components.BackButton
+import com.composables.icons.lucide.FileJson
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MapPin
+import com.composables.icons.lucide.Trash2
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
+import androidx.compose.material3.HorizontalDivider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,16 +64,116 @@ fun LocationScreen(
     val locationPointsFlow by viewModel.locationPoints.collectAsState()
     // Collect the actual location points from the inner Flow
     val locationPoints by locationPointsFlow.collectAsState(initial = emptyList())
+    // Track if data clearing is in progress
+    val isClearingData by viewModel.isClearingData.collectAsState()
+
+    // State for confirmation dialog
+    var showConfirmDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Location History") }, navigationIcon = {
-                BackButton(onClick = {
-                    onBackPressed()
-                })
-            })
+            TopAppBar(
+                title = { Text("Location History") },
+                navigationIcon = {
+                    BackButton(onClick = {
+                        onBackPressed()
+                    })
+                },
+                actions = {
+                    // Only show action buttons if we have location points
+                    if (locationPoints.isNotEmpty()) {
+                        // Export button
+                        val exportLauncher = rememberLauncherForActivityResult(
+                            contract = ActivityResultContracts.CreateDocument("application/json"),
+                            onResult = { uri ->
+                                if (uri != null) {
+                                    val context = viewModel.viewModelContext
+                                    val success = viewModel.exportLocationDataToJson(context, uri)
+                                    if (success) {
+                                        Toast.makeText(
+                                            context,
+                                            "Location data exported successfully",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    } else {
+                                        Toast.makeText(
+                                            context,
+                                            "Failed to export location data",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            }
+                        )
+
+                        IconButton(
+                            onClick = {
+                                val timestamp =
+                                    SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+                                        .format(Date())
+                                exportLauncher.launch("carsense_locations_$timestamp.json")
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Lucide.FileJson,
+                                contentDescription = "Export location data",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        // Clear button
+                        IconButton(
+                            onClick = { showConfirmDialog = true }
+                        ) {
+                            Icon(
+                                imageVector = Lucide.Trash2,
+                                contentDescription = "Clear location data",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            )
         }) { paddingValues ->
-        if (locationPoints.isEmpty()) {
+
+        // Confirmation dialog
+        if (showConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showConfirmDialog = false },
+                title = { Text("Clear Location Data") },
+                text = { Text("Are you sure you want to delete all location history? This action cannot be undone.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.clearAllLocationData()
+                            showConfirmDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Clear All")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showConfirmDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // Show loading indicator when clearing data
+        if (isClearingData) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else if (locationPoints.isEmpty()) {
             // Show empty state
             Box(
                 modifier = Modifier

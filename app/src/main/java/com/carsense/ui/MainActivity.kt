@@ -45,13 +45,13 @@ import com.carsense.core.auth.AuthManager
 import com.carsense.core.auth.AuthUIEvent
 import com.carsense.core.auth.AuthViewModel
 import com.carsense.core.auth.TokenStorageService
-import com.carsense.core.location.LocationService
-import com.carsense.core.navigation.AppNavigation
-import com.carsense.core.permissions.LocationPermissionHelper
 import com.carsense.features.vehicles.data.db.VehicleDao
 import com.carsense.features.bluetooth.presentation.intent.BluetoothIntent
 import com.carsense.features.bluetooth.presentation.viewmodel.BluetoothViewModel
 import com.carsense.ui.theme.CarSenseTheme
+import com.carsense.features.location.data.service.ForegroundLocationService
+import com.carsense.core.navigation.AppNavigation
+import com.carsense.core.permissions.LocationPermissionHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -83,6 +83,10 @@ class MainActivity : ComponentActivity() {
     // Location Permission Launchers
     private lateinit var locationPermissionsLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var backgroundLocationPermissionLauncher: ActivityResultLauncher<String>
+
+    // Bluetooth Permission Launchers - adding class-level variables for these
+    private lateinit var btPermissionsLauncher: ActivityResultLauncher<Array<String>>
+    private lateinit var enableBluetoothLauncher: ActivityResultLauncher<Intent>
 
     // State for managing dialog visibility
     private var showBackgroundRationaleDialogState by mutableStateOf(false)
@@ -286,37 +290,26 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupBluetoothPermissionLaunchers() {
-        val enableBluetoothLauncher =
+        // Initialize the Bluetooth enable launcher
+        enableBluetoothLauncher =
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { /* Not needed */ }
-        // This launcher is for BT permissions (SCAN and CONNECT for S+)
-        // It seems this local variable `permissionLauncher` isn't directly used later,
-        // but the act of registering it sets up the callback for when requestBluetoothPermissions invokes its own local launcher.
-        // This part of BT permission could be streamlined to use a class-level launcher like location permissions.
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
-            val canEnableBluetooth = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                perms[Manifest.permission.BLUETOOTH_CONNECT] == true
-            } else true
 
-            if (canEnableBluetooth && !isBluetoothEnabled) {
-                enableBluetoothLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+        // Initialize the Bluetooth permissions launcher
+        btPermissionsLauncher =
+            registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
+                val canEnableBluetooth = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    perms[Manifest.permission.BLUETOOTH_CONNECT] == true
+                } else true
+
+                if (canEnableBluetooth && !isBluetoothEnabled) {
+                    enableBluetoothLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                }
             }
-        }
     }
 
     private fun requestBluetoothPermissions() {
-        // This function creates its own launcher internally for S+.
-        // For pre-S, it directly launches the enable intent if needed.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val btPermLauncher =
-                registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
-                    val canEnableBluetooth = perms[Manifest.permission.BLUETOOTH_CONNECT] == true
-                    if (canEnableBluetooth && !isBluetoothEnabled) {
-                        val enableBluetoothLauncher =
-                            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { /* Not needed */ }
-                        enableBluetoothLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
-                    }
-                }
-            btPermLauncher.launch(
+            btPermissionsLauncher.launch(
                 arrayOf(
                     Manifest.permission.BLUETOOTH_SCAN,
                     Manifest.permission.BLUETOOTH_CONNECT,
@@ -324,8 +317,6 @@ class MainActivity : ComponentActivity() {
             )
         } else {
             if (!isBluetoothEnabled) {
-                val enableBluetoothLauncher =
-                    registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { /* Not needed */ }
                 enableBluetoothLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
             }
         }
@@ -434,7 +425,7 @@ class MainActivity : ComponentActivity() {
                 vehicleDao.getLatestVehicle() // Assuming such a method exists or can be added
 
             if (latestVehicle == null) {
-                Timber.e("Cannot start LocationService: No vehicles found in the database.")
+                Timber.e("Cannot start ForegroundLocationService: No vehicles found in the database.")
                 // Optionally, inform the user or disable location tracking features
                 return@launch
             }
@@ -442,23 +433,23 @@ class MainActivity : ComponentActivity() {
             val vehicleLocalId = latestVehicle.localId
 
             if (vehicleLocalId == -1L || vehicleLocalId == 0L) { // Should not happen if localId is auto-increment and starts from 1
-                Timber.e("Cannot start LocationService: Invalid vehicleLocalId ($vehicleLocalId) obtained from DB.")
+                Timber.e("Cannot start ForegroundLocationService: Invalid vehicleLocalId ($vehicleLocalId) obtained from DB.")
                 return@launch
             }
 
-            Timber.d("All necessary permissions granted. Starting LocationService for vehicle ID: $vehicleLocalId")
-            val intent = Intent(this@MainActivity, LocationService::class.java).apply {
-                action = LocationService.ACTION_START_LOCATION_SERVICE
-                putExtra(LocationService.EXTRA_VEHICLE_LOCAL_ID, vehicleLocalId)
+            Timber.d("All necessary permissions granted. Starting ForegroundLocationService for vehicle ID: $vehicleLocalId")
+            val intent = Intent(this@MainActivity, ForegroundLocationService::class.java).apply {
+                action = ForegroundLocationService.ACTION_START_LOCATION_SERVICE
+                putExtra(ForegroundLocationService.EXTRA_VEHICLE_LOCAL_ID, vehicleLocalId)
             }
             ContextCompat.startForegroundService(this@MainActivity, intent)
         }
     }
 
     private fun stopLocationService() {
-        Timber.d("Stopping LocationService.")
-        val intent = Intent(this, LocationService::class.java).apply {
-            action = LocationService.ACTION_STOP_LOCATION_SERVICE
+        Timber.d("Stopping ForegroundLocationService.")
+        val intent = Intent(this, ForegroundLocationService::class.java).apply {
+            action = ForegroundLocationService.ACTION_STOP_LOCATION_SERVICE
         }
         // It's good practice to use startForegroundService for consistency if the service could be in foreground
         // or just startService if you are sure it only needs to process this command.

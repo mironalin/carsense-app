@@ -50,4 +50,7 @@ interface LocationPointDao {
 
     @Query("DELETE FROM location_points")
     suspend fun clearAll(): Int
+
+    @Query("SELECT * FROM location_points ORDER BY timestamp DESC")
+    fun getAllLocationPoints(): Flow<List<LocationPointEntity>>
 }

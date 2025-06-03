@@ -29,9 +29,9 @@
 
     <application
         android:name="com.carsense.core.application.CarSenseApplication"
-        android:enableOnBackInvokedCallback="true"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -61,7 +61,7 @@
         </activity>
 
         <service
-            android:name=".core.location.LocationService"
+            android:name=".features.location.data.service.ForegroundLocationService"
             android:exported="false"
             android:foregroundServiceType="location" />
 

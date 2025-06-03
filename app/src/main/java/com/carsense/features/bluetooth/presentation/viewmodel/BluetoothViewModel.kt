@@ -9,6 +9,7 @@ import com.carsense.features.bluetooth.domain.ConnectionResult
 import com.carsense.features.bluetooth.presentation.intent.BluetoothIntent
 import com.carsense.features.bluetooth.presentation.model.BluetoothState
 import com.carsense.features.obd2.domain.OBD2MessageMapper
+import com.carsense.features.vehicles.domain.repository.VehicleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -43,8 +44,10 @@ import javax.inject.Inject
  *   the actual Bluetooth operations.
  */
 @HiltViewModel
-class BluetoothViewModel @Inject constructor(private val bluetoothController: BluetoothController) :
-    ViewModel() {
+class BluetoothViewModel @Inject constructor(
+    private val bluetoothController: BluetoothController,
+    private val vehicleRepository: VehicleRepository
+) : ViewModel() {
 
     private val _state = MutableStateFlow(BluetoothState())
     val state =
@@ -89,12 +92,16 @@ class BluetoothViewModel @Inject constructor(private val bluetoothController: Bl
                     //   - Otherwise (if not actively connecting), retain current isConnecting state
                     //     (e.g. if it was already false).
                     val newState = if (controllerIsConnected) {
+                        // Remove LocationTracker usage - MainActivity will handle this via ForegroundLocationService
+
                         currentState.copy(
                             isConnected = true,
                             isConnecting = false, // The full connection, including OBD2 init, is complete.
                             errorMessage = null
                         )
                     } else {
+                        // Remove LocationTracker usage - MainActivity will handle this via ForegroundLocationService
+
                         // If we were in the middle of a connection attempt that now failed/dropped.
                         currentState.copy(
                             isConnected = false,
@@ -430,6 +437,18 @@ class BluetoothViewModel @Inject constructor(private val bluetoothController: Bl
     }
 
     /**
+     * Helper function to get the currently selected vehicle
+     */
+    private suspend fun getSelectedVehicle(): com.carsense.features.vehicles.domain.model.Vehicle? {
+        return try {
+            vehicleRepository.getAllVehicles().firstOrNull()?.find { it.isSelected }
+        } catch (e: Exception) {
+            Log.e("BluetoothViewModel", "Error getting selected vehicle", e)
+            null
+        }
+    }
+
+    /**
      * Releases the Bluetooth controller when the ViewModel is cleared.
      *
      * This function is called when the ViewModel is no longer needed. It ensures that the
@@ -438,5 +457,6 @@ class BluetoothViewModel @Inject constructor(private val bluetoothController: Bl
     override fun onCleared() {
         super.onCleared()
         bluetoothController.release()
+        // Remove LocationTracker call since we're not using it directly anymore
     }
 }
