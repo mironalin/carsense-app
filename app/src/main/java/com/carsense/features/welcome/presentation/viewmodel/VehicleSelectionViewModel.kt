@@ -86,6 +86,10 @@ class VehicleSelectionViewModel @Inject constructor(
             is VehicleSelectionEvent.DeleteVehicle -> {
                 deleteVehicle(event.uuid)
             }
+
+            is VehicleSelectionEvent.RestoreVehicle -> {
+                restoreVehicle(event.uuid)
+            }
         }
     }
 
@@ -309,6 +313,44 @@ class VehicleSelectionViewModel @Inject constructor(
         }
     }
 
+    private fun restoreVehicle(uuid: String) {
+        viewModelScope.launch {
+            try {
+                _state.update { it.copy(isDeletingVehicle = true, error = null) }
+
+                val result = vehicleRepository.restoreVehicle(uuid)
+                result.onSuccess { vehicle ->
+                    _state.update { it.copy(isDeletingVehicle = false) }
+                    showSnackbar("Vehicle restored successfully")
+                }.onFailure { e ->
+                    if (e is CancellationException) {
+                        Timber.d("Restore vehicle job was cancelled normally")
+                    } else {
+                        Timber.e(e, "Error restoring vehicle")
+                        _state.update {
+                            it.copy(
+                                isDeletingVehicle = false,
+                                error = "Failed to restore vehicle: ${e.message}"
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) {
+                    Timber.d("Restore vehicle job was cancelled normally")
+                } else {
+                    Timber.e(e, "Error restoring vehicle")
+                    _state.update {
+                        it.copy(
+                            isDeletingVehicle = false,
+                            error = "Failed to restore vehicle: ${e.message}"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     // Add function to show snackbar message
     fun showSnackbar(message: String) {
         _state.update { it.copy(error = message) }
@@ -342,4 +384,5 @@ sealed class VehicleSelectionEvent {
     data class SelectVehicle(val uuid: String) : VehicleSelectionEvent()
     data class AddNewVehicle(val vehicle: Vehicle) : VehicleSelectionEvent()
     data class DeleteVehicle(val uuid: String) : VehicleSelectionEvent()
+    data class RestoreVehicle(val uuid: String) : VehicleSelectionEvent()
 } 

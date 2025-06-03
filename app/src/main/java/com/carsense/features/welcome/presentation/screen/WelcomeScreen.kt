@@ -99,35 +99,52 @@ fun WelcomeScreen(
 
     BackHandler(enabled = true) {}
 
-    Scaffold(snackbarHost = {
-        SnackbarHost(
-            hostState = snackbarHostState, snackbar = { snackbarData ->
-                Snackbar(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    snackbarData = snackbarData
+    Scaffold(
+        snackbarHost = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .align(Alignment.BottomCenter),
+                    snackbar = { snackbarData ->
+                        androidx.compose.material3.Snackbar(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            shape = RoundedCornerShape(12.dp), // Match the card's corner shape
+                        ) {
+                            androidx.compose.material3.Text(
+                                text = snackbarData.visuals.message,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
                 )
-            })
-    }, topBar = {
-        WelcomeTopBar(
-            isLoggedIn = isLoggedIn,
-            userName = userName,
-            isConnected = isConnected,
-            deviceName = deviceName,
-            isLogoutLoading = isLogoutLoading,
-            onLoginLogoutClick = onLoginClick,
-            onSettingsClick = onSettingsClick,
-            showSnackbar = { message ->
-                snackbarHostState.showSnackbar(message)
-            })
-    }, bottomBar = {
-        // Only show disconnect button in the footer when connected
-        if (isConnected && isLoggedIn) {
-            DisconnectFooter(
-                deviceName = deviceName, onDisconnectClick = onDisconnectClick
-            )
-        }
-    }) { paddingValues ->
+            }
+        },
+        topBar = {
+            WelcomeTopBar(
+                isLoggedIn = isLoggedIn,
+                userName = userName,
+                isConnected = isConnected,
+                deviceName = deviceName,
+                isLogoutLoading = isLogoutLoading,
+                onLoginLogoutClick = onLoginClick,
+                onSettingsClick = onSettingsClick,
+                showSnackbar = { message ->
+                    snackbarHostState.showSnackbar(message)
+                })
+        }, bottomBar = {
+            // Only show disconnect button in the footer when connected
+            if (isConnected && isLoggedIn) {
+                DisconnectFooter(
+                    deviceName = deviceName, onDisconnectClick = onDisconnectClick
+                )
+            }
+        }) { paddingValues ->
         Surface(
             modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
         ) {

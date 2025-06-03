@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
@@ -79,6 +80,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.heightIn
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
@@ -91,6 +93,11 @@ fun YourVehiclesScreen(
     var isInitialized by rememberSaveable { mutableStateOf(false) }
     var showContent by rememberSaveable { mutableStateOf(false) }
 
+    // Track the last deleted vehicle to enable restore functionality
+    var lastDeletedVehicle by rememberSaveable {
+        mutableStateOf<Pair<String, String>?>(null) // Pair of UUID and vehicle name
+    }
+
     // Handle lifecycle events
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
@@ -101,10 +108,37 @@ fun YourVehiclesScreen(
     // Collect vehicle state
     val state by viewModel.state.collectAsState()
 
-    // Show error messages in snackbar
+    // Show snackbar when a vehicle is deleted
+    LaunchedEffect(lastDeletedVehicle) {
+        lastDeletedVehicle?.let { (uuid, name) ->
+            val result = snackbarHostState.showSnackbar(
+                message = "Vehicle '${name}' deleted",
+                actionLabel = "Restore",
+                withDismissAction = true
+            )
+
+            when (result) {
+                androidx.compose.material3.SnackbarResult.ActionPerformed -> {
+                    // User clicked "Restore" - restore the vehicle
+                    viewModel.onEvent(VehicleSelectionEvent.RestoreVehicle(uuid))
+                    // Clear the last deleted vehicle reference
+                    lastDeletedVehicle = null
+                }
+
+                androidx.compose.material3.SnackbarResult.Dismissed -> {
+                    // Snackbar was dismissed - clear the reference
+                    lastDeletedVehicle = null
+                }
+            }
+        }
+    }
+
+    // Show error messages in snackbar, but only when no deleted vehicle snackbar is showing
     LaunchedEffect(state.error) {
-        state.error?.let {
-            snackbarHostState.showSnackbar(message = it)
+        if (lastDeletedVehicle == null) {
+            state.error?.let {
+                snackbarHostState.showSnackbar(message = it)
+            }
         }
     }
 
@@ -182,7 +216,52 @@ fun YourVehiclesScreen(
 
     Scaffold(
         snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .align(Alignment.BottomCenter),
+                    snackbar = { snackbarData ->
+                        androidx.compose.material3.Snackbar(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            shape = RoundedCornerShape(12.dp), // Match the card's corner shape
+                            action = {
+                                snackbarData.visuals.actionLabel?.let { actionLabel ->
+                                    androidx.compose.material3.TextButton(
+                                        onClick = { snackbarData.performAction() }
+                                    ) {
+                                        androidx.compose.material3.Text(
+                                            text = actionLabel,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            },
+                            dismissAction = {
+                                if (snackbarData.visuals.withDismissAction) {
+                                    androidx.compose.material3.IconButton(onClick = { snackbarData.dismiss() }) {
+                                        androidx.compose.material3.Icon(
+                                            imageVector = androidx.compose.material.icons.Icons.Filled.Close,
+                                            contentDescription = "Dismiss",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        ) {
+                            androidx.compose.material3.Text(
+                                text = snackbarData.visuals.message,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                )
+            }
         },
         topBar = {
             TopAppBar(
@@ -196,6 +275,9 @@ fun YourVehiclesScreen(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
+        },
+        bottomBar = {
+            AddVehicleButtonFooter(onAddVehicle = onAddVehicle)
         }
     ) { paddingValues ->
         Box(
@@ -282,6 +364,12 @@ fun YourVehiclesScreen(
                                                     // Mark as being deleted immediately for UI update
                                                     isItemBeingDeleted.value = true
 
+                                                    // Store the vehicle info for potential restoration
+                                                    val vehicleName =
+                                                        "${currentVehicle.make} ${currentVehicle.model}"
+                                                    lastDeletedVehicle =
+                                                        Pair(currentVehicle.uuid, vehicleName)
+
                                                     // Perform actual deletion after UI update
                                                     coroutineScope.launch {
                                                         viewModel.onEvent(
@@ -349,20 +437,6 @@ fun YourVehiclesScreen(
                                 }
                             }
                         }
-
-                        // Add vehicle button
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 16.dp)
-                        ) {
-                            AddVehicleButton(
-                                onClick = {
-                                    // Pause data loading before navigating to Add Vehicle screen
-                                    viewModel.pauseDataLoading()
-                                    onAddVehicle()
-                                })
-                        }
                     }
 
                     // Only show pull refresh indicator when there are vehicles
@@ -378,6 +452,22 @@ fun YourVehiclesScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun AddVehicleButtonFooter(
+    onAddVehicle: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        AddVehicleButton(
+            onClick = { onAddVehicle() }
+        )
     }
 }
 
