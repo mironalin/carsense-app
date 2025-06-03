@@ -419,10 +419,8 @@ class MainActivity : ComponentActivity() {
 
     private fun triggerLocationServiceStart() {
         lifecycleScope.launch {
-            // Attempt to get the latest vehicle by its localId (assuming higher ID = newer)
-            // In a real app, you'd have a more robust way to get the current/active vehicle ID.
-            val latestVehicle =
-                vehicleDao.getLatestVehicle() // Assuming such a method exists or can be added
+            // Attempt to get the latest vehicle
+            val latestVehicle = vehicleDao.getLatestVehicle()
 
             if (latestVehicle == null) {
                 Timber.e("Cannot start ForegroundLocationService: No vehicles found in the database.")
@@ -430,17 +428,17 @@ class MainActivity : ComponentActivity() {
                 return@launch
             }
 
-            val vehicleLocalId = latestVehicle.localId
+            val vehicleUUID = latestVehicle.uuid
 
-            if (vehicleLocalId == -1L || vehicleLocalId == 0L) { // Should not happen if localId is auto-increment and starts from 1
-                Timber.e("Cannot start ForegroundLocationService: Invalid vehicleLocalId ($vehicleLocalId) obtained from DB.")
+            if (vehicleUUID.isBlank()) {
+                Timber.e("Cannot start ForegroundLocationService: Invalid vehicleUUID (blank) obtained from DB.")
                 return@launch
             }
 
-            Timber.d("All necessary permissions granted. Starting ForegroundLocationService for vehicle ID: $vehicleLocalId")
+            Timber.d("All necessary permissions granted. Starting ForegroundLocationService for vehicle UUID: $vehicleUUID")
             val intent = Intent(this@MainActivity, ForegroundLocationService::class.java).apply {
                 action = ForegroundLocationService.ACTION_START_LOCATION_SERVICE
-                putExtra(ForegroundLocationService.EXTRA_VEHICLE_LOCAL_ID, vehicleLocalId)
+                putExtra(ForegroundLocationService.EXTRA_VEHICLE_UUID, vehicleUUID)
             }
             ContextCompat.startForegroundService(this@MainActivity, intent)
         }

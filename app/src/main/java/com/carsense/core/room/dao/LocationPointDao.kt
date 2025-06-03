@@ -19,9 +19,9 @@ interface LocationPointDao {
     suspend fun insertAll(locationPoints: List<LocationPointEntity>): List<Long>
 
     @Query(
-        "SELECT * FROM location_points WHERE vehicle_local_id = :vehicleId ORDER BY timestamp DESC"
+        "SELECT * FROM location_points WHERE vehicle_uuid = :vehicleUUID ORDER BY timestamp DESC"
     )
-    fun getLocationsForVehicle(vehicleId: Long): Flow<List<LocationPointEntity>>
+    fun getLocationsForVehicle(vehicleUUID: String): Flow<List<LocationPointEntity>>
 
     @Query("SELECT * FROM location_points WHERE is_synced = 0 ORDER BY timestamp ASC")
     fun getUnsyncedLocationPoints(): Flow<List<LocationPointEntity>>
@@ -45,8 +45,8 @@ interface LocationPointDao {
     @Delete
     suspend fun deleteLocationPoints(locationPoints: List<LocationPointEntity>): Int
 
-    @Query("DELETE FROM location_points WHERE vehicle_local_id = :vehicleId")
-    suspend fun deleteLocationsForVehicle(vehicleId: Long): Int
+    @Query("DELETE FROM location_points WHERE vehicle_uuid = :vehicleUUID")
+    suspend fun deleteLocationsForVehicle(vehicleUUID: String): Int
 
     @Query("DELETE FROM location_points")
     suspend fun clearAll(): Int

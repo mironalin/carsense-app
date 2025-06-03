@@ -55,11 +55,11 @@ class LocationViewModel @Inject constructor(
                 // Get the latest vehicle
                 val latestVehicle = vehicleDao.getLatestVehicle()
 
-                // If we have a valid vehicle ID, get all location points for that vehicle
+                // If we have a valid vehicle, get all location points for that vehicle using UUID
                 if (latestVehicle != null) {
-                    val vehicleId = latestVehicle.localId
-                    _locationPoints.value = locationPointDao.getLocationsForVehicle(vehicleId)
-                    Timber.d("Loading location points for vehicle ID: $vehicleId")
+                    val vehicleUUID = latestVehicle.uuid
+                    _locationPoints.value = locationPointDao.getLocationsForVehicle(vehicleUUID)
+                    Timber.d("Loading location points for vehicle UUID: $vehicleUUID")
                 } else {
                     Timber.w("No vehicles found in database")
                 }
@@ -112,14 +112,14 @@ class LocationViewModel @Inject constructor(
                 val jsonArray = JSONArray()
 
                 // Group locations by vehicle for better organization
-                val vehicleIds = locations.mapNotNull { it.vehicleLocalId }.distinct()
-                Timber.d("Found ${locations.size} total locations across ${vehicleIds.size} vehicles")
+                val vehicleUUIDs = locations.mapNotNull { it.vehicleUUID }.distinct()
+                Timber.d("Found ${locations.size} total locations across ${vehicleUUIDs.size} vehicles")
 
                 for (location in locations) {
                     val jsonObject = JSONObject().apply {
                         put("uuid", location.uuid)
                         put("localId", location.localId)
-                        put("vehicleLocalId", location.vehicleLocalId)
+                        put("vehicleUUID", location.vehicleUUID)
                         put("latitude", location.latitude)
                         put("longitude", location.longitude)
                         put("altitude", location.altitude ?: JSONObject.NULL)
@@ -137,8 +137,8 @@ class LocationViewModel @Inject constructor(
                 val exportJson = JSONObject().apply {
                     put("exportDate", System.currentTimeMillis())
                     put("exportDateFormatted", formatTimestamp(System.currentTimeMillis()))
-                    put("totalVehicles", vehicleIds.size)
-                    put("vehicleIds", JSONArray(vehicleIds))
+                    put("totalVehicles", vehicleUUIDs.size)
+                    put("vehicleUUIDs", JSONArray(vehicleUUIDs))
                     put("totalLocations", locations.size)
                     put("locations", jsonArray)
                 }

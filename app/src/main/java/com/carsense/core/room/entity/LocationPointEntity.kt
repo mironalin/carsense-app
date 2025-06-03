@@ -13,13 +13,12 @@ import java.util.UUID
     foreignKeys =
         [
             ForeignKey(
-                entity = VehicleEntity::class, // We'll define VehicleEntity later
-                parentColumns = ["local_id"],
-                childColumns = ["vehicle_local_id"],
-                onDelete = ForeignKey.CASCADE // Or SET_NULL if a location point can
-                // exist without a vehicle
+                entity = VehicleEntity::class,
+                parentColumns = ["uuid"],
+                childColumns = ["vehicle_uuid"],
+                onDelete = ForeignKey.CASCADE
             )],
-    indices = [Index(value = ["vehicle_local_id"]), Index(value = ["uuid"], unique = true)]
+    indices = [Index(value = ["vehicle_uuid"]), Index(value = ["uuid"], unique = true)]
 )
 data class LocationPointEntity(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "local_id") val localId: Long = 0,
@@ -28,8 +27,10 @@ data class LocationPointEntity(
     // It can be used to reconcile with the server-side record if needed.
     // The server might use this UUID or its own.
     @ColumnInfo(name = "uuid") val uuid: String = UUID.randomUUID().toString(),
-    @ColumnInfo(name = "vehicle_local_id")
-    val vehicleLocalId: Long?, // Nullable for now, can be made non-nullable if required
+
+    @ColumnInfo(name = "vehicle_uuid")
+    val vehicleUUID: String?,
+
     @ColumnInfo(name = "latitude") val latitude: Double,
     @ColumnInfo(name = "longitude") val longitude: Double,
     @ColumnInfo(name = "altitude") val altitude: Double?,

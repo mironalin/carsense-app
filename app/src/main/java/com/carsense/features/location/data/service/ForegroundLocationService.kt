@@ -53,12 +53,12 @@ class ForegroundLocationService : Service() {
 
     private lateinit var locationCallback: LocationCallback
 
-    private var currentVehicleLocalId: Long? = null // Will be set via Intent
+    private var currentVehicleUUID: String? = null // Changed from localId to UUID
 
     companion object {
         const val ACTION_START_LOCATION_SERVICE = "ACTION_START_LOCATION_SERVICE"
         const val ACTION_STOP_LOCATION_SERVICE = "ACTION_STOP_LOCATION_SERVICE"
-        const val EXTRA_VEHICLE_LOCAL_ID = "EXTRA_VEHICLE_LOCAL_ID"
+        const val EXTRA_VEHICLE_UUID = "EXTRA_VEHICLE_UUID" // Changed from local_id to UUID
 
         private const val TAG = "ForegroundLocationService"
         private const val NOTIFICATION_CHANNEL_ID = "LocationServiceChannel"
@@ -79,18 +79,18 @@ class ForegroundLocationService : Service() {
         intent?.let {
             when (it.action) {
                 ACTION_START_LOCATION_SERVICE -> {
-                    if (it.hasExtra(EXTRA_VEHICLE_LOCAL_ID)) {
-                        currentVehicleLocalId = it.getLongExtra(EXTRA_VEHICLE_LOCAL_ID, -1L)
-                        if (currentVehicleLocalId == -1L) {
-                            Timber.e("Invalid vehicleLocalId received. Stopping service.")
+                    if (it.hasExtra(EXTRA_VEHICLE_UUID)) {
+                        currentVehicleUUID = it.getStringExtra(EXTRA_VEHICLE_UUID)
+                        if (currentVehicleUUID.isNullOrEmpty()) {
+                            Timber.e("Invalid vehicleUUID received. Stopping service.")
                             stopSelf()
                             return START_NOT_STICKY
                         }
-                        Timber.d("Starting location updates for vehicleLocalId: $currentVehicleLocalId")
+                        Timber.d("Starting location updates for vehicleUUID: $currentVehicleUUID")
                         startForegroundService()
                         startLocationUpdates()
                     } else {
-                        Timber.e("vehicleLocalId not provided in start intent. Stopping service.")
+                        Timber.e("vehicleUUID not provided in start intent. Stopping service.")
                         stopSelf()
                         return START_NOT_STICKY
                     }
@@ -118,16 +118,16 @@ class ForegroundLocationService : Service() {
                                 "Lon: ${location.longitude}, Speed: ${if (location.hasSpeed()) location.speed else "N/A"} m/s"
                     )
 
-                    val vehicleId = currentVehicleLocalId
-                    if (vehicleId == null) {
-                        Timber.w("ForegroundLocationService: currentVehicleLocalId is null, cannot save location.")
+                    val vehicleUUID = currentVehicleUUID
+                    if (vehicleUUID.isNullOrEmpty()) {
+                        Timber.w("ForegroundLocationService: currentVehicleUUID is null or empty, cannot save location.")
                         return
                     }
 
                     // Create a location point object
                     val locationPoint = LocationPoint(
                         uuid = UUID.randomUUID().toString(),
-                        vehicleLocalId = vehicleId,
+                        vehicleUUID = vehicleUUID,
                         latitude = location.latitude,
                         longitude = location.longitude,
                         altitude = if (location.hasAltitude()) location.altitude else null,

@@ -14,7 +14,7 @@ object LocationMapper {
     fun toEntity(domainModel: LocationPoint): LocationPointEntity {
         return LocationPointEntity(
             uuid = domainModel.uuid,
-            vehicleLocalId = domainModel.vehicleLocalId,
+            vehicleUUID = domainModel.vehicleUUID,
             latitude = domainModel.latitude,
             longitude = domainModel.longitude,
             altitude = domainModel.altitude,
@@ -31,7 +31,7 @@ object LocationMapper {
     fun toDomainModel(entity: LocationPointEntity): LocationPoint {
         return LocationPoint(
             uuid = entity.uuid,
-            vehicleLocalId = entity.vehicleLocalId ?: -1, // Handle nullable vehicle ID
+            vehicleUUID = entity.vehicleUUID ?: "", // Handle nullable vehicle UUID
             latitude = entity.latitude,
             longitude = entity.longitude,
             altitude = entity.altitude,
