@@ -21,4 +21,11 @@ interface DTCRepository {
      * @return List of cached DTCError objects, or empty list if no cache exists
      */
     fun getCachedDTCs(): List<DTCError>
+
+    /**
+     * Send the current cached DTCs to the backend for the specified diagnostic
+     * @param diagnosticUUID The UUID of the diagnostic record to associate with the DTCs
+     * @return Result with the count of DTCs sent, or an error
+     */
+    suspend fun sendDTCsToBackend(diagnosticUUID: String): Result<Int>
 }

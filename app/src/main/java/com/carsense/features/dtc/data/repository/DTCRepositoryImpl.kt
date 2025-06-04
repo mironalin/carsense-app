@@ -2,6 +2,8 @@ package com.carsense.features.dtc.data.repository
 
 import android.util.Log
 import com.carsense.features.bluetooth.domain.BluetoothController
+import com.carsense.features.dtc.data.api.CreateDTCRequest
+import com.carsense.features.dtc.data.api.DTCApiService
 import com.carsense.features.dtc.domain.command.ClearDTCCommand
 import com.carsense.features.dtc.domain.command.DTCCommand
 import com.carsense.features.dtc.domain.model.DTCError
@@ -15,8 +17,10 @@ import javax.inject.Singleton
 
 /** Implementation of the DTCRepository that communicates with the vehicle via Bluetooth */
 @Singleton
-class DTCRepositoryImpl @Inject constructor(private val bluetoothController: BluetoothController) :
-    DTCRepository {
+class DTCRepositoryImpl @Inject constructor(
+    private val bluetoothController: BluetoothController,
+    private val dtcApiService: DTCApiService
+) : DTCRepository {
 
     private val TAG = "DTCRepository"
 
@@ -722,5 +726,46 @@ class DTCRepositoryImpl @Inject constructor(private val bluetoothController: Blu
     override fun getCachedDTCs(): List<DTCError> {
         Log.d(TAG, "Returning ${cachedDTCs.size} cached DTCs")
         return cachedDTCs
+    }
+
+    /**
+     * Sends the cached DTCs to the backend for the specified diagnostic record.
+     *
+     * @param diagnosticUUID The UUID of the diagnostic record to associate with the DTCs
+     * @return Result with the count of DTCs sent successfully, or an error
+     */
+    override suspend fun sendDTCsToBackend(diagnosticUUID: String): Result<Int> {
+        val dtcs = getCachedDTCs()
+
+        if (dtcs.isEmpty()) {
+            Log.d(TAG, "No DTCs to send to backend")
+            return Result.success(0)
+        }
+
+        return try {
+            Log.d(TAG, "Sending ${dtcs.size} DTCs to backend for diagnostic $diagnosticUUID")
+
+            val dtcRequests = dtcs.map {
+                CreateDTCRequest(
+                    code = it.code,
+                    confirmed = true // All DTCs from Mode 03 are confirmed
+                )
+            }
+
+            val response = dtcApiService.createDTCs(diagnosticUUID, dtcRequests)
+
+            if (response.isSuccessful && response.body() != null) {
+                val result = response.body()!!
+                Log.d(TAG, "Successfully sent ${result.count} DTCs to backend")
+                Result.success(result.count)
+            } else {
+                val errorMsg = "Failed to send DTCs: ${response.code()}, ${response.message()}"
+                Log.e(TAG, "$errorMsg, error body: ${response.errorBody()?.string()}")
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception sending DTCs to backend", e)
+            Result.failure(e)
+        }
     }
 }
