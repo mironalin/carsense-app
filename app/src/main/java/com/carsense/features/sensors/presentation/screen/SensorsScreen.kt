@@ -4,14 +4,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -28,16 +33,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.carsense.features.sensors.domain.model.SensorReading
 import com.carsense.features.sensors.presentation.components.SensorView
 import com.carsense.features.sensors.presentation.viewmodel.SensorViewModel
+import com.carsense.features.sensors.presentation.viewmodel.SnapshotUploadStatus
 import com.carsense.features.welcome.presentation.components.BackButton
 import com.composables.icons.lucide.Activity
 import com.composables.icons.lucide.Droplet
@@ -48,6 +56,7 @@ import com.composables.icons.lucide.Play
 import com.composables.icons.lucide.RefreshCw
 import com.composables.icons.lucide.Thermometer
 import com.composables.icons.lucide.Timer
+import com.composables.icons.lucide.Upload
 import com.composables.icons.lucide.Wind
 
 /** Data class for sensor display configuration */
@@ -65,28 +74,41 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
     val sensorConfigs by remember(state) {
         derivedStateOf {
             listOf(
-                SensorConfig("rpm", "Engine RPM", Lucide.Gauge, state.rpmReading), SensorConfig(
-                    "speed", "Vehicle Speed", Lucide.Gauge, state.speedReading
-                ), SensorConfig(
-                    "coolant", "Coolant Temperature", Lucide.Thermometer, state.coolantTempReading
-                ), SensorConfig(
-                    "intake", "Intake Air Temperature", Lucide.Wind, state.intakeAirTempReading
-                ), SensorConfig(
-                    "throttle", "Throttle Position", Lucide.Gauge, state.throttlePositionReading
-                ), SensorConfig(
-                    "fuel", "Fuel Level", Lucide.Droplet, state.fuelLevelReading
-                ), SensorConfig(
-                    "load", "Engine Load", Lucide.Activity, state.engineLoadReading
-                ), SensorConfig(
+                SensorConfig("rpm", "Engine RPM", Lucide.Gauge, state.rpmReading),
+                SensorConfig("speed", "Vehicle Speed", Lucide.Gauge, state.speedReading),
+                SensorConfig(
+                    "coolant",
+                    "Coolant Temperature",
+                    Lucide.Thermometer,
+                    state.coolantTempReading
+                ),
+                SensorConfig(
+                    "intake",
+                    "Intake Air Temperature",
+                    Lucide.Wind,
+                    state.intakeAirTempReading
+                ),
+                SensorConfig(
+                    "throttle",
+                    "Throttle Position",
+                    Lucide.Gauge,
+                    state.throttlePositionReading
+                ),
+                SensorConfig("fuel", "Fuel Level", Lucide.Droplet, state.fuelLevelReading),
+                SensorConfig("load", "Engine Load", Lucide.Activity, state.engineLoadReading),
+                SensorConfig(
                     "manifold",
                     "Intake Manifold Pressure",
                     Lucide.Gauge,
                     state.intakeManifoldPressureReading
-                ), SensorConfig(
-                    "timing", "Ignition Timing Advance", Lucide.Timer, state.timingAdvanceReading
-                ), SensorConfig(
-                    "maf", "Mass Air Flow Rate", Lucide.Wind, state.massAirFlowReading
-                )
+                ),
+                SensorConfig(
+                    "timing",
+                    "Ignition Timing Advance",
+                    Lucide.Timer,
+                    state.timingAdvanceReading
+                ),
+                SensorConfig("maf", "Mass Air Flow Rate", Lucide.Wind, state.massAirFlowReading)
             )
         }
     }
@@ -128,7 +150,8 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
 
     // Status message and speed testing UI
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background, topBar = {
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
             TopAppBar(
                 title = {
                     Text(
@@ -137,13 +160,22 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
-                }, navigationIcon = {
+                },
+                navigationIcon = {
                     BackButton(onClick = {
                         // Stop monitoring before navigating back
                         viewModel.stopMonitoring()
                         onBackPressed()
                     })
-                }, actions = {
+                },
+                actions = {
+                    // Add the snapshot status badge 
+                    SnapshotStatusBadge(
+                        readingsCount = state.snapshotReadingsCount,
+                        uploadStatus = state.snapshotUploadStatus,
+                        isCollecting = state.snapshotCollectionInProgress
+                    )
+
                     // Toggle monitoring button
                     IconButton(
                         onClick = {
@@ -171,9 +203,11 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                             imageVector = Lucide.RefreshCw, contentDescription = "Refresh Sensors"
                         )
                     }
-                }, modifier = Modifier.statusBarsPadding()
+                },
+                modifier = Modifier.statusBarsPadding()
             )
-        }) { paddingValues ->
+        }
+    ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -191,11 +225,22 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Use the optimized SensorView for each sensor to prevent excessive
-                    // recompositions
+                    // Use the optimized SensorView for each sensor to prevent excessive recompositions
                     items(sensorConfigs, key = { it.id }) { config ->
                         SensorView(
                             title = config.title, icon = config.icon, sensorReading = config.reading
+                        )
+                    }
+
+                    // Add snapshot status info
+                    item(key = "snapshot_status") {
+                        SnapshotStatusInfo(
+                            readingsCount = state.snapshotReadingsCount,
+                            uploadStatus = state.snapshotUploadStatus,
+                            uploadError = state.snapshotUploadError,
+                            isCollecting = state.snapshotCollectionInProgress,
+                            lastUploadTimestamp = state.snapshotLastUploadTimestamp,
+                            lastUploadReadingsCount = state.snapshotLastUploadedReadingsCount
                         )
                     }
 
@@ -238,5 +283,97 @@ fun SensorsScreen(viewModel: SensorViewModel = hiltViewModel(), onBackPressed: (
                 }
             }
         }
+    }
+}
+
+@Composable
+fun SnapshotStatusBadge(
+    readingsCount: Int,
+    uploadStatus: SnapshotUploadStatus,
+    isCollecting: Boolean
+) {
+    BadgedBox(
+        badge = {
+            if (readingsCount > 0) {
+                Badge(
+                    containerColor = getStatusColor(uploadStatus, isCollecting)
+                ) {
+                    Text(text = readingsCount.toString())
+                }
+            }
+        }
+    ) {
+        Icon(
+            imageVector = Lucide.Upload,
+            contentDescription = "Snapshot status",
+            tint = getStatusColor(uploadStatus, isCollecting),
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@Composable
+fun SnapshotStatusInfo(
+    readingsCount: Int,
+    uploadStatus: SnapshotUploadStatus,
+    uploadError: String?,
+    isCollecting: Boolean,
+    lastUploadTimestamp: Long,
+    lastUploadReadingsCount: Int
+) {
+    val statusColor = getStatusColor(uploadStatus, isCollecting)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Lucide.Upload,
+                contentDescription = "Snapshot status",
+                tint = statusColor,
+                modifier = Modifier.size(20.dp)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = when {
+                    isCollecting -> "Collecting snapshot: $readingsCount readings"
+                    uploadStatus == SnapshotUploadStatus.SUCCESS ->
+                        "Last snapshot: $lastUploadReadingsCount readings uploaded"
+
+                    uploadStatus == SnapshotUploadStatus.ERROR -> "Snapshot upload failed"
+                    else -> "No snapshot data"
+                },
+                color = statusColor,
+                fontSize = 14.sp
+            )
+        }
+
+        // Show error message if there was an error
+        if (uploadStatus == SnapshotUploadStatus.ERROR && !uploadError.isNullOrEmpty()) {
+            Text(
+                text = uploadError,
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun getStatusColor(status: SnapshotUploadStatus, isCollecting: Boolean): Color {
+    return when {
+        isCollecting -> Color(0xFF2196F3) // Blue for collecting
+        status == SnapshotUploadStatus.SUCCESS -> Color(0xFF4CAF50) // Green for success
+        status == SnapshotUploadStatus.ERROR -> Color(0xFFF44336) // Red for error
+        else -> Color.Gray
     }
 }

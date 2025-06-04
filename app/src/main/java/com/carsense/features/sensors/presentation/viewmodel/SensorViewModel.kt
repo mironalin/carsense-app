@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carsense.features.sensors.domain.model.SensorReading
 import com.carsense.features.sensors.domain.repository.SensorRepository
+import com.carsense.features.sensors.data.service.SensorSnapshotCollector
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -21,6 +22,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
+import kotlinx.coroutines.flow.collectLatest
 
 /** Enum defining sensor priority levels */
 enum class SensorPriority {
@@ -46,14 +48,29 @@ data class SensorState(
     val intakeManifoldPressureReading: SensorReading? = null,
     val timingAdvanceReading: SensorReading? = null,
     val massAirFlowReading: SensorReading? = null,
-    val isMonitoring: Boolean = false
-// Removed refreshRateMs since it's no longer needed
+    val isMonitoring: Boolean = false,
+    // Add new fields for snapshot status
+    val snapshotUploadStatus: SnapshotUploadStatus = SnapshotUploadStatus.NONE,
+    val snapshotUploadError: String? = null,
+    val snapshotCollectionInProgress: Boolean = false,
+    val snapshotReadingsCount: Int = 0,
+    val snapshotLastUploadTimestamp: Long = 0,
+    val snapshotLastUploadedReadingsCount: Int = 0
 )
+
+/** Enum for snapshot upload status */
+enum class SnapshotUploadStatus {
+    NONE,
+    SUCCESS,
+    ERROR
+}
 
 /** ViewModel for the Sensors screen that manages sensor reading states */
 @HiltViewModel
-class SensorViewModel @Inject constructor(private val sensorRepository: SensorRepository) :
-    ViewModel() {
+class SensorViewModel @Inject constructor(
+    private val sensorRepository: SensorRepository,
+    private val sensorSnapshotCollector: SensorSnapshotCollector
+) : ViewModel() {
 
     private val _state = MutableStateFlow(SensorState())
     val state: StateFlow<SensorState> = _state.asStateFlow()
@@ -469,8 +486,8 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
         interpolationJob =
             viewModelScope.launch {
                 while (isActive && state.value.isMonitoring) {
-                    // Use a standard frame rate that's reliable on most devices
-                    delay(16) // ~60fps for smooth animation
+                    // Use a higher frame rate for smoother animation
+                    delay(8) // ~120fps for extra smooth animation (was 16 - 60fps)
 
                     try {
                         // Keep track of which sensors need updates
@@ -570,9 +587,12 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
 
         // Calculate animation speed based on distance
         // For RPM we want faster movement for larger distances
-        val baseSpeed = 60.0 // Increased base RPM change per frame
+        val baseSpeed = 100.0 // Increased for faster RPM changes (was 60.0)
         val speedMultiplier =
-            min(1.0 + (abs(distance) / 500.0), 8.0) // Speed up for larger distances, max 8x
+            min(
+                1.0 + (abs(distance) / 400.0),
+                12.0
+            ) // Increased speed for larger distances (was 8.0 max)
         val speed = baseSpeed * speedMultiplier
 
         // Calculate new RPM value
@@ -624,10 +644,14 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
             return
         }
 
-        // Speedometers move slowly up and faster down
-        val baseSpeed = if (distance > 0) 0.8 else 1.5 // Speed gauge moves slower up than down
+        // Speedometers should respond quickly to changes
+        val baseSpeed =
+            if (distance > 0) 1.2 else 2.0 // Increased for faster response (was 0.8/1.5)
         val speedMultiplier =
-            min(1.0 + (abs(distance) / 30.0), 3.0) // Boost for larger changes, max 3x
+            min(
+                1.0 + (abs(distance) / 20.0),
+                5.0
+            ) // Increased boost for larger changes (was 3.0 max)
         val speed = baseSpeed * speedMultiplier
 
         // Calculate new speed value
@@ -919,6 +943,27 @@ class SensorViewModel @Inject constructor(private val sensorRepository: SensorRe
     /** Initial load of sensor readings */
     init {
         startMonitoring()
+
+        // Observe snapshot collector state
+        viewModelScope.launch {
+            sensorSnapshotCollector.state.collectLatest { collectorState ->
+                _state.update { currentState ->
+                    currentState.copy(
+                        snapshotUploadStatus = when (collectorState.lastUploadStatus) {
+                            SensorSnapshotCollector.UploadStatus.NONE -> SnapshotUploadStatus.NONE
+                            SensorSnapshotCollector.UploadStatus.SUCCESS -> SnapshotUploadStatus.SUCCESS
+                            SensorSnapshotCollector.UploadStatus.ERROR -> SnapshotUploadStatus.ERROR
+                        },
+                        snapshotUploadError = collectorState.lastUploadError,
+                        snapshotCollectionInProgress = collectorState.currentCycleReadingsCount > 0 &&
+                                !collectorState.isReadyToUpload,
+                        snapshotReadingsCount = collectorState.currentCycleReadingsCount,
+                        snapshotLastUploadTimestamp = collectorState.lastSnapshotTimestamp,
+                        snapshotLastUploadedReadingsCount = collectorState.lastUploadedReadingsCount
+                    )
+                }
+            }
+        }
     }
 
     /** Stops monitoring sensors when ViewModel is cleared */
