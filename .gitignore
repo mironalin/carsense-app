@@ -24,3 +24,6 @@ ELM327DS.pdf
 SensorImplementationRoadmap.md
 schema/
 .idea/codeStyles/Project.xml
+app/src/main/java/com/carsense/log.logcat
+app/src/main/java/com/carsense/sensors.json
+sensorReadings.json
