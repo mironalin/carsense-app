@@ -15,12 +15,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -58,6 +60,46 @@ fun BluetoothDeviceScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
+            // Show loading indicator when diagnostic creation is in progress
+            if (state.diagnosticCreationInProgress) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Creating diagnostic record...")
+                }
+            }
+
+            // Show success message when diagnostic is created
+            if (state.diagnosticUuid != null && !state.diagnosticCreationInProgress) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            "Diagnostic session created",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("UUID: ${state.diagnosticUuid}")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Ready for diagnostics")
+                    }
+                }
+            }
+
             BluetoothDeviceList(
                 scannedDevices = state.scannedDevices,
                 pairedDevices = state.pairedDevices,

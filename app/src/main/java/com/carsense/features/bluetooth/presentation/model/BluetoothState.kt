@@ -16,5 +16,8 @@ data class BluetoothState(
     val isConnecting: Boolean = false,
     val connectedDeviceAddress: String? = null,
     val errorMessage: String? = null,
-    val messages: List<MessageModel> = emptyList()
+    val messages: List<MessageModel> = emptyList(),
+    val diagnosticCreationInProgress: Boolean = false,
+    val diagnosticUuid: String? = null,
+    val connectionCompleted: Boolean = false
 )

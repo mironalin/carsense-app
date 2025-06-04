@@ -10,6 +10,8 @@ sealed class BluetoothIntent {
     object StartScan : BluetoothIntent()
     object StopScan : BluetoothIntent()
     data class SendCommand(val message: String) : BluetoothIntent()
-
-    object DismissError : BluetoothIntent()
+    data class SendCommandWithPrompt(val prompt: String, val message: String) : BluetoothIntent()
+    data object ClearMessages : BluetoothIntent()
+    data object DismissError : BluetoothIntent()
+    data class SubmitOdometerReading(val odometer: Int) : BluetoothIntent()
 }

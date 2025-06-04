@@ -8,6 +8,7 @@ import com.carsense.features.bluetooth.domain.BluetoothDeviceDomain
 import com.carsense.features.bluetooth.domain.ConnectionResult
 import com.carsense.features.bluetooth.presentation.intent.BluetoothIntent
 import com.carsense.features.bluetooth.presentation.model.BluetoothState
+import com.carsense.features.diagnostics.domain.usecase.CreateDiagnosticAfterConnectionUseCase
 import com.carsense.features.obd2.domain.OBD2MessageMapper
 import com.carsense.features.vehicles.domain.repository.VehicleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -46,7 +47,8 @@ import javax.inject.Inject
 @HiltViewModel
 class BluetoothViewModel @Inject constructor(
     private val bluetoothController: BluetoothController,
-    private val vehicleRepository: VehicleRepository
+    private val vehicleRepository: VehicleRepository,
+    private val createDiagnosticAfterConnectionUseCase: CreateDiagnosticAfterConnectionUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(BluetoothState())
@@ -92,12 +94,13 @@ class BluetoothViewModel @Inject constructor(
                     //   - Otherwise (if not actively connecting), retain current isConnecting state
                     //     (e.g. if it was already false).
                     val newState = if (controllerIsConnected) {
-                        // Remove LocationTracker usage - MainActivity will handle this via ForegroundLocationService
-
+                        // We successfully connected, set state for connection completion
+                        // We'll use this to navigate to the mileage input screen
                         currentState.copy(
                             isConnected = true,
                             isConnecting = false, // The full connection, including OBD2 init, is complete.
-                            errorMessage = null
+                            errorMessage = null,
+                            connectionCompleted = !currentState.isConnected // Set true only on first connection
                         )
                     } else {
                         // Remove LocationTracker usage - MainActivity will handle this via ForegroundLocationService
@@ -107,7 +110,11 @@ class BluetoothViewModel @Inject constructor(
                             isConnected = false,
                             isConnecting = if (currentState.isConnecting && currentState.connectedDeviceAddress != null) false else currentState.isConnecting,
                             // Clear target device if connection attempt failed/dropped
-                            connectedDeviceAddress = if (currentState.isConnecting) null else currentState.connectedDeviceAddress
+                            connectedDeviceAddress = if (currentState.isConnecting) null else currentState.connectedDeviceAddress,
+                            // Reset diagnostic creation state
+                            diagnosticCreationInProgress = false,
+                            diagnosticUuid = null,
+                            connectionCompleted = false
                         )
                     }
                     Log.d(
@@ -149,37 +156,7 @@ class BluetoothViewModel @Inject constructor(
      * @param intent The [BluetoothIntent] representing the user's action.
      */
     fun processIntent(intent: BluetoothIntent) {
-
-        if (intent is BluetoothIntent.ConnectToDevice) {
-            // Guard 1: Already attempting to connect to any device
-            if (_state.value.isConnecting) {
-                Log.d(
-                    "BluetoothViewModel",
-                    "Connection attempt already in progress for ${_state.value.connectedDeviceAddress}. New attempt to ${intent.device.address} ignored."
-                )
-                return
-            }
-            // Guard 2: Already connected to the *same* device
-            if (_state.value.isConnected && _state.value.connectedDeviceAddress == intent.device.address) {
-                Log.d(
-                    "BluetoothViewModel",
-                    "Already connected to ${intent.device.address}. Intent to connect to same device ignored."
-                )
-                return
-            }
-            // Guard 3: Connected to a *different* device, so disconnect first
-            if (_state.value.isConnected && _state.value.connectedDeviceAddress != intent.device.address) {
-                Log.d(
-                    "BluetoothViewModel",
-                    "Currently connected to ${_state.value.connectedDeviceAddress}. Disconnecting before attempting connection to ${intent.device.address}."
-                )
-                disconnectFromDevice() // This will change state, leading to UI update. User might need to click again.
-                // To automatically proceed, one might queue the intent or use a more complex state, for now, manual re-click is implied.
-                return // Stop processing this intent now, let disconnect proceed.
-            }
-        }
-
-        // First update state through the reducer
+        // First update state (synchronous)
         _state.update { currentState -> reduce(currentState, intent) }
 
         // Then handle side effects
@@ -190,6 +167,9 @@ class BluetoothViewModel @Inject constructor(
             is BluetoothIntent.StopScan -> stopScan()
             is BluetoothIntent.SendCommand -> sendMessage(intent.message)
             is BluetoothIntent.DismissError -> _state.update { it.copy(errorMessage = null) }
+            is BluetoothIntent.SubmitOdometerReading -> createDiagnostic(intent.odometer)
+            is BluetoothIntent.ClearMessages -> _state.update { it.copy(messages = emptyList()) }
+            is BluetoothIntent.SendCommandWithPrompt -> sendMessage(intent.message)
         }
     }
 
@@ -220,13 +200,90 @@ class BluetoothViewModel @Inject constructor(
             is BluetoothIntent.DisconnectFromDevice -> currentState.copy(
                 isConnecting = false,
                 isConnected = false,
-                connectedDeviceAddress = null
+                connectedDeviceAddress = null,
+                diagnosticCreationInProgress = false,
+                diagnosticUuid = null
             )
 
             is BluetoothIntent.StartScan -> currentState
             is BluetoothIntent.StopScan -> currentState
             is BluetoothIntent.SendCommand -> currentState
             is BluetoothIntent.DismissError -> currentState.copy(errorMessage = null)
+            is BluetoothIntent.SubmitOdometerReading -> currentState.copy(
+                diagnosticCreationInProgress = true
+            )
+
+            is BluetoothIntent.ClearMessages -> currentState.copy(messages = emptyList())
+            is BluetoothIntent.SendCommandWithPrompt -> currentState
+        }
+    }
+
+    /**
+     * Creates a diagnostic record after the user submits the odometer reading
+     * @param odometer The vehicle's current odometer reading
+     */
+    private fun createDiagnostic(odometer: Int) {
+        Log.d(
+            "BluetoothViewModel",
+            "Creating diagnostic with odometer reading: $odometer, isConnected: ${_state.value.isConnected}"
+        )
+
+        viewModelScope.launch {
+            try {
+                // Start diagnostic creation in progress
+                _state.update { it.copy(diagnosticCreationInProgress = true) }
+                Log.d(
+                    "BluetoothViewModel",
+                    "Diagnostic creation in progress, starting use case execution"
+                )
+
+                // Execute the use case to create the diagnostic
+                createDiagnosticAfterConnectionUseCase.execute(odometer)
+                    .collect { result ->
+                        Log.d(
+                            "BluetoothViewModel",
+                            "Received result from createDiagnosticAfterConnectionUseCase"
+                        )
+                        result.fold(
+                            onSuccess = { diagnostic ->
+                                // Store the diagnostic UUID for reference and mark creation as complete
+                                _state.update {
+                                    it.copy(
+                                        diagnosticCreationInProgress = false,
+                                        diagnosticUuid = diagnostic.uuid
+                                    )
+                                }
+                                Log.d(
+                                    "BluetoothViewModel",
+                                    "Diagnostic created successfully with UUID: ${diagnostic.uuid}"
+                                )
+                            },
+                            onFailure = { error ->
+                                // Update state with error and mark creation as failed
+                                _state.update {
+                                    it.copy(
+                                        diagnosticCreationInProgress = false,
+                                        errorMessage = "Failed to create diagnostic: ${error.message}"
+                                    )
+                                }
+                                Log.e(
+                                    "BluetoothViewModel",
+                                    "Failed to create diagnostic: ${error.message}",
+                                    error
+                                )
+                            }
+                        )
+                    }
+            } catch (e: Exception) {
+                // Handle any unexpected exceptions
+                _state.update {
+                    it.copy(
+                        diagnosticCreationInProgress = false,
+                        errorMessage = "Error creating diagnostic: ${e.message}"
+                    )
+                }
+                Log.e("BluetoothViewModel", "Exception creating diagnostic: ${e.message}", e)
+            }
         }
     }
 
@@ -362,6 +419,13 @@ class BluetoothViewModel @Inject constructor(
      */
     private fun stopScan() {
         bluetoothController.stopDiscovery()
+    }
+
+    /**
+     * Resets the connection completed flag after navigation
+     */
+    fun resetConnectionCompleted() {
+        _state.update { it.copy(connectionCompleted = false) }
     }
 
     /**

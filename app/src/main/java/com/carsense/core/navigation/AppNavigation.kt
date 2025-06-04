@@ -13,6 +13,7 @@ import com.carsense.features.bluetooth.presentation.intent.BluetoothIntent
 import com.carsense.features.bluetooth.presentation.screen.BluetoothDeviceScreen
 import com.carsense.features.bluetooth.presentation.viewmodel.BluetoothViewModel
 import com.carsense.features.dashboard.presentation.screen.DashboardScreen
+import com.carsense.features.diagnostics.presentation.screen.MileageInputScreen
 import com.carsense.features.dtc.presentation.screen.DTCScreen
 import com.carsense.features.location.presentation.screen.LocationScreen
 import com.carsense.features.sensors.presentation.screen.SensorsScreen
@@ -105,13 +106,24 @@ fun AppNavigation(
                 onStopScan = { bluetoothViewModel.processIntent(BluetoothIntent.StopScan) },
                 onDeviceClick = { device ->
                     bluetoothViewModel.processIntent(BluetoothIntent.ConnectToDevice(device))
-                    // Navigate back to welcome screen after connecting
-                    navController.navigateUp()
+                    // Navigate immediately to mileage input screen
+                    // Connection status will be shown there
+                    navController.navigateSingleTop(NavRoutes.MILEAGE_INPUT)
                 },
                 onBackPressed = {
                     // Clean navigation back to previous screen
                     navController.navigateUp()
                 })
+        }
+
+        // Mileage Input Screen
+        animatedComposable(NavRoutes.MILEAGE_INPUT) {
+            MileageInputScreen(
+                onBackPressed = {
+                    bluetoothViewModel.processIntent(BluetoothIntent.DisconnectFromDevice)
+                    navController.navigateUp()
+                }
+            )
         }
 
         // Dashboard Screen

@@ -25,6 +25,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -48,10 +50,11 @@ import com.carsense.core.auth.TokenStorageService
 import com.carsense.features.vehicles.data.db.VehicleDao
 import com.carsense.features.bluetooth.presentation.intent.BluetoothIntent
 import com.carsense.features.bluetooth.presentation.viewmodel.BluetoothViewModel
-import com.carsense.ui.theme.CarSenseTheme
 import com.carsense.features.location.data.service.ForegroundLocationService
 import com.carsense.core.navigation.AppNavigation
 import com.carsense.core.permissions.LocationPermissionHelper
+import com.carsense.core.navigation.LocalNavController
+import com.carsense.ui.theme.CarSenseTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -125,69 +128,76 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val bluetoothState by viewModel.state.collectAsState()
 
-                // Collect Auth UI Events from AuthViewModel
-                LaunchedEffect(key1 = Unit) { // Use Unit to launch once
-                    authViewModel.uiEvents.collect { event ->
-                        when (event) {
-                            is AuthUIEvent.LaunchLoginFlow -> {
-                                launchAuthFlow() // Call the Activity's method
-                            }
+                // Provide the NavController to all composables via CompositionLocalProvider
+                CompositionLocalProvider(LocalNavController provides navController) {
+                    // Collect Auth UI Events from AuthViewModel
+                    LaunchedEffect(key1 = Unit) { // Use Unit to launch once
+                        authViewModel.uiEvents.collect { event ->
+                            when (event) {
+                                is AuthUIEvent.LaunchLoginFlow -> {
+                                    launchAuthFlow() // Call the Activity's method
+                                }
 
-                            is AuthUIEvent.ShowToast -> {
-                                Toast.makeText(this@MainActivity, event.message, Toast.LENGTH_LONG)
-                                    .show()
+                                is AuthUIEvent.ShowToast -> {
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        event.message,
+                                        Toast.LENGTH_LONG
+                                    )
+                                        .show()
+                                }
                             }
                         }
                     }
-                }
 
-                // Observe Bluetooth connection state to start/stop LocationService
-                LaunchedEffect(bluetoothState.isConnected) {
-                    if (bluetoothState.isConnected) {
-                        // Permissions should have been requested already.
-                        // We just need to ensure they are still granted before starting.
-                        Timber.d("Bluetooth connected, attempting to start LocationService if permissions are granted.")
-                        if (LocationPermissionHelper.hasRequiredLocationPermissions(this@MainActivity)) {
-                            triggerLocationServiceStart()
+                    // Observe Bluetooth connection state to start/stop LocationService
+                    LaunchedEffect(bluetoothState.isConnected) {
+                        if (bluetoothState.isConnected) {
+                            // Permissions should have been requested already.
+                            // We just need to ensure they are still granted before starting.
+                            Timber.d("Bluetooth connected, attempting to start LocationService if permissions are granted.")
+                            if (LocationPermissionHelper.hasRequiredLocationPermissions(this@MainActivity)) {
+                                triggerLocationServiceStart()
+                            } else {
+                                // This case should ideally not be hit if permissions were handled on startup.
+                                // But as a fallback, or if permissions were revoked.
+                                Timber.w("Bluetooth connected, but required location permissions are missing. Requesting again.")
+                                checkAndRequestLocationPermissions()
+                            }
                         } else {
-                            // This case should ideally not be hit if permissions were handled on startup.
-                            // But as a fallback, or if permissions were revoked.
-                            Timber.w("Bluetooth connected, but required location permissions are missing. Requesting again.")
-                            checkAndRequestLocationPermissions()
+                            Timber.d("Bluetooth disconnected, stopping location service...")
+                            stopLocationService()
                         }
-                    } else {
-                        Timber.d("Bluetooth disconnected, stopping location service...")
-                        stopLocationService()
                     }
-                }
 
-                // Main app container
-                Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
-                    // Use our navigation graph from core
-                    val rememberedOnLoginClick =
-                        remember { { authViewModel.handleLoginLogoutClick() } }
-                    AppNavigation(
-                        navController = navController,
-                        bluetoothViewModel = viewModel,
-                        onLoginClick = rememberedOnLoginClick, // Single call to ViewModel
-                        authViewModel = authViewModel // Pass the AuthViewModel to navigation
-                    )
+                    // Main app container
+                    Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
+                        // Use our navigation graph from core
+                        val rememberedOnLoginClick =
+                            remember { { authViewModel.handleLoginLogoutClick() } }
+                        AppNavigation(
+                            navController = navController,
+                            bluetoothViewModel = viewModel,
+                            onLoginClick = rememberedOnLoginClick, // Single call to ViewModel
+                            authViewModel = authViewModel // Pass the AuthViewModel to navigation
+                        )
 
-                    // Show connection and error states
-                    ConnectionStateOverlay(viewModel)
+                        // Show connection and error states
+                        ConnectionStateOverlay(viewModel)
 
-                    // Show background rationale dialog if state is true
-                    if (showBackgroundRationaleDialogState) {
-                        BackgroundLocationRationaleDialog(onConfirm = {
-                            showBackgroundRationaleDialogState = false
-                            LocationPermissionHelper.requestBackgroundLocationPermission(
-                                backgroundLocationPermissionLauncher
-                            )
-                        }, onDismiss = {
-                            showBackgroundRationaleDialogState = false
-                            Timber.w("User dismissed background location rationale.")
-                            // Handle if user explicitly denies/dismisses rationale
-                        })
+                        // Show background rationale dialog if state is true
+                        if (showBackgroundRationaleDialogState) {
+                            BackgroundLocationRationaleDialog(onConfirm = {
+                                showBackgroundRationaleDialogState = false
+                                LocationPermissionHelper.requestBackgroundLocationPermission(
+                                    backgroundLocationPermissionLauncher
+                                )
+                            }, onDismiss = {
+                                showBackgroundRationaleDialogState = false
+                                Timber.w("User dismissed background location rationale.")
+                                // Handle if user explicitly denies/dismisses rationale
+                            })
+                        }
                     }
                 }
             }
@@ -533,6 +543,40 @@ fun BackgroundLocationRationaleDialog(onConfirm: () -> Unit, onDismiss: () -> Un
 @Composable
 fun ConnectionStateOverlay(viewModel: BluetoothViewModel) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+
+    // Show success toast when diagnostic is created
+    LaunchedEffect(state.diagnosticUuid, state.diagnosticCreationInProgress) {
+        if (state.diagnosticUuid != null && !state.diagnosticCreationInProgress) {
+            // Show success toast
+            Toast.makeText(
+                context,
+                "Diagnostic record created successfully",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    // Show diagnostic creation progress
+    if (state.diagnosticCreationInProgress) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color(0x80000000) // Semi-transparent background
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Creating diagnostic record...",
+                    color = Color.White
+                )
+            }
+        }
+    }
 
     // Show connecting overlay
     if (state.isConnecting) {

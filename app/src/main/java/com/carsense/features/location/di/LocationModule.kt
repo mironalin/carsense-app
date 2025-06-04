@@ -1,8 +1,10 @@
 package com.carsense.features.location.di
 
 import android.content.Context
+import com.carsense.features.location.data.repository.LocationRepositoryImpl
 import com.carsense.features.location.data.service.AndroidLocationService
 import com.carsense.features.location.data.service.LocationService
+import com.carsense.features.location.domain.repository.LocationRepository
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import dagger.Binds
@@ -38,5 +40,9 @@ class LocationModule {
         @Binds
         @Singleton
         fun bindLocationService(impl: AndroidLocationService): LocationService
+
+        @Binds
+        @Singleton
+        fun bindLocationRepository(impl: LocationRepositoryImpl): LocationRepository
     }
 }
