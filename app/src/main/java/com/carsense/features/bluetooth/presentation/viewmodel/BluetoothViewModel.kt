@@ -8,6 +8,7 @@ import com.carsense.features.bluetooth.domain.BluetoothDeviceDomain
 import com.carsense.features.bluetooth.domain.ConnectionResult
 import com.carsense.features.bluetooth.presentation.intent.BluetoothIntent
 import com.carsense.features.bluetooth.presentation.model.BluetoothState
+import com.carsense.features.diagnostics.data.DiagnosticSessionManager
 import com.carsense.features.diagnostics.domain.usecase.CreateDiagnosticAfterConnectionUseCase
 import com.carsense.features.obd2.domain.OBD2MessageMapper
 import com.carsense.features.vehicles.domain.repository.VehicleRepository
@@ -48,7 +49,8 @@ import javax.inject.Inject
 class BluetoothViewModel @Inject constructor(
     private val bluetoothController: BluetoothController,
     private val vehicleRepository: VehicleRepository,
-    private val createDiagnosticAfterConnectionUseCase: CreateDiagnosticAfterConnectionUseCase
+    private val createDiagnosticAfterConnectionUseCase: CreateDiagnosticAfterConnectionUseCase,
+    private val diagnosticSessionManager: DiagnosticSessionManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(BluetoothState())
@@ -253,6 +255,10 @@ class BluetoothViewModel @Inject constructor(
                                         diagnosticUuid = diagnostic.uuid
                                     )
                                 }
+
+                                // Also store the UUID in the session manager
+                                diagnosticSessionManager.setCurrentDiagnosticUUID(diagnostic.uuid)
+
                                 Log.d(
                                     "BluetoothViewModel",
                                     "Diagnostic created successfully with UUID: ${diagnostic.uuid}"
@@ -328,11 +334,19 @@ class BluetoothViewModel @Inject constructor(
             "BluetoothViewModel",
             "disconnectFromDevice called. CurrentVMState: (conn=${_state.value.isConnected}, connecting=${_state.value.isConnecting}, addr=${_state.value.connectedDeviceAddress})"
         )
+
+        // Clear diagnostic UUID from session manager when disconnecting
+        viewModelScope.launch {
+            try {
+                diagnosticSessionManager.clearCurrentDiagnosticUUID()
+                Log.d("BluetoothViewModel", "Cleared diagnostic UUID from session manager")
+            } catch (e: Exception) {
+                Log.e("BluetoothViewModel", "Error clearing diagnostic UUID: ${e.message}", e)
+            }
+        }
+
         deviceConnectionJob?.cancel()
         bluetoothController.closeConnection()
-        // After explicitly calling close, ensure the state reflects this immediately if not already handled by controller's isConnected flow.
-        // However, the controller's isConnected flow should be the primary driver for these state changes.
-        // _state.update { it.copy(isConnected = false, isConnecting = false, connectedDeviceAddress = null) }
     }
 
     /**
