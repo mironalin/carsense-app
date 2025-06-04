@@ -2,6 +2,7 @@ package com.carsense.features.sensors.data.repository
 
 import android.util.Log
 import com.carsense.features.bluetooth.domain.BluetoothController
+import com.carsense.features.sensors.data.service.SensorSnapshotCollector
 import com.carsense.features.sensors.domain.command.CoolantTemperatureCommand
 import com.carsense.features.sensors.domain.command.EngineLoadCommand
 import com.carsense.features.sensors.domain.command.FuelLevelCommand
@@ -62,7 +63,10 @@ import kotlin.math.min
 @Singleton
 class SensorRepositoryImpl
 @Inject
-constructor(private val bluetoothController: BluetoothController) : SensorRepository {
+constructor(
+    private val bluetoothController: BluetoothController,
+    private val sensorSnapshotCollector: SensorSnapshotCollector
+) : SensorRepository {
 
     // Tag for logging
     private val TAG = "SensorRepository"
@@ -625,6 +629,13 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
         return if (operationFinalReading != null) {
             latestReadings[sensorId] = operationFinalReading!!
             _sensorReadings.emit(operationFinalReading!!)
+
+            // Add the reading to the snapshot collector
+            val snapshotCompleted = sensorSnapshotCollector.addReading(operationFinalReading!!)
+            if (snapshotCompleted) {
+                Log.d(TAG, "Completed a full circle snapshot with sensor $sensorId")
+            }
+
             val queryTime = System.currentTimeMillis() - startTime
             updateAverageQueryTime(queryTime)
             Log.i(TAG, "Successfully read $sensorId: ${operationFinalReading!!.value}")
@@ -781,7 +792,7 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                 Log.d(TAG, "Starting monitoring for specific sensors: $sensorIds")
 
                 // For individual mode, keep a small delay to ensure proper handling
-                val betweenSensorDelayMs = 10L
+                val betweenSensorDelayMs = 1L
 
                 // Use a smaller buffer for calculations
                 val safeIntervalMs = updateIntervalMs * 0.9
@@ -1246,23 +1257,17 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
         // Set initial average sensor query time based on default refresh rate
         averageSensorQueryTimeMs = 25
 
+        // Generate the round-robin polling sequence based on priority weights
+        val pollingSequence = generatePollingSequence(
+            highPrioritySensors,
+            mediumPrioritySensors,
+            lowPrioritySensors
+        )
+
         // Start the monitoring coroutine with the supervisor job to prevent error propagation
         monitoringJob =
             sensorScope.launch {
-                // Counters to track update cycles for medium and low priority sensors
-                var mediumPriorityCycleCounter = 0
-                var lowPriorityCycleCounter = 0
-
-                // Medium priority sensors are updated every 2 cycles
-                val mediumPriorityUpdateInterval = 2
-
-                // Low priority sensors are updated every 3 cycles
-                val lowPriorityUpdateInterval = 3
-
-                // Rotation indexes for sensor processing
-                var highPriorityIndex = 0
-                var mediumPriorityIndex = 0
-                var lowPriorityIndex = 0
+                var currentIndex = 0
 
                 while (isActive && isMonitoring) {
                     val cycleStartTime = System.currentTimeMillis()
@@ -1274,57 +1279,14 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                     }
 
                     try {
-                        // Process high priority sensors (limited number per cycle)
-                        if (highPrioritySensors.isNotEmpty()) {
-                            // Determine number of sensors to process this cycle (adaptive based
-                            // on timing)
-                            val numHighToProcess =
-                                min(
-                                    MAX_HIGH_PRIORITY_SENSORS_PER_CYCLE,
-                                    highPrioritySensors.size
-                                )
-                            val sensorsToProcess = mutableListOf<String>()
+                        // Get the next sensor to poll in the round-robin sequence
+                        val sensorId = pollingSequence[currentIndex]
 
-                            // Gather sensors to process in a round-robin fashion
-                            repeat(numHighToProcess) {
-                                sensorsToProcess.add(highPrioritySensors[highPriorityIndex])
-                                highPriorityIndex =
-                                    (highPriorityIndex + 1) % highPrioritySensors.size
-                            }
+                        // Process the sensor
+                        processIndividualSensors(listOf(sensorId), betweenSensorDelayMs)
 
-                            processIndividualSensors(sensorsToProcess, betweenSensorDelayMs)
-                        }
-
-                        // Process medium priority sensors every other cycle
-                        if (mediumPrioritySensors.isNotEmpty() &&
-                            mediumPriorityCycleCounter %
-                            mediumPriorityUpdateInterval == 0
-                        ) {
-                            // Process one medium priority sensor per cycle
-                            val sensorId = mediumPrioritySensors[mediumPriorityIndex]
-                            mediumPriorityIndex =
-                                (mediumPriorityIndex + 1) % mediumPrioritySensors.size
-
-                            processIndividualSensors(listOf(sensorId), betweenSensorDelayMs)
-                        }
-
-                        // Process low priority sensors every third cycle
-                        if (lowPrioritySensors.isNotEmpty() &&
-                            lowPriorityCycleCounter % lowPriorityUpdateInterval == 0
-                        ) {
-                            // Process one low priority sensor per cycle
-                            val sensorId = lowPrioritySensors[lowPriorityIndex]
-                            lowPriorityIndex = (lowPriorityIndex + 1) % lowPrioritySensors.size
-
-                            processIndividualSensors(listOf(sensorId), betweenSensorDelayMs)
-                        }
-
-                        // Update counters
-                        mediumPriorityCycleCounter =
-                            (mediumPriorityCycleCounter + 1) %
-                                    (mediumPriorityUpdateInterval * 2)
-                        lowPriorityCycleCounter =
-                            (lowPriorityCycleCounter + 1) % (lowPriorityUpdateInterval * 2)
+                        // Move to next sensor in the sequence
+                        currentIndex = (currentIndex + 1) % pollingSequence.size
 
                         // Calculate remaining time in this update cycle
                         val cycleDuration = System.currentTimeMillis() - cycleStartTime
@@ -1338,8 +1300,7 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
                             )
                         }
 
-                        // Wait for the remaining time until next update cycle, with minimum
-                        // wait
+                        // Wait for the remaining time until next update cycle, with minimum wait
                         if (remainingTime > MIN_SENSOR_DELAY_MS) {
                             delay(remainingTime)
                         } else {
@@ -1361,6 +1322,48 @@ constructor(private val bluetoothController: BluetoothController) : SensorReposi
 
                 Log.d(TAG, "Prioritized sensor monitoring stopped")
             }
+    }
+
+    /**
+     * Generates a round-robin polling sequence based on sensor priorities.
+     * High priority sensors appear 6 times, medium 2 times, and low 1 time in the sequence.
+     * All high priority sensors are given equal treatment for better real-time responsiveness.
+     */
+    private fun generatePollingSequence(
+        highPrioritySensors: List<String>,
+        mediumPrioritySensors: List<String>,
+        lowPrioritySensors: List<String>
+    ): List<String> {
+        val sequence = mutableListOf<String>()
+
+        // Extra entries for all high priority sensors
+        // These will be polled more frequently for better responsiveness
+        sequence.addAll(highPrioritySensors)
+
+        // Ensure all sensors in same priority level are polled with same frequency
+        // High priority sensors appear in 3 standard rounds
+        repeat(3) {
+            sequence.addAll(highPrioritySensors)
+        }
+
+        // Add high priority sensors again for extra responsiveness
+        sequence.addAll(highPrioritySensors)
+
+        // Medium priority sensors appear 2 times in the sequence
+        repeat(2) {
+            sequence.addAll(mediumPrioritySensors)
+        }
+
+        // Add high priority sensors once more for consistent responsiveness
+        sequence.addAll(highPrioritySensors)
+
+        // Low priority sensors appear 1 time in the sequence
+        sequence.addAll(lowPrioritySensors)
+
+        // Log the full sequence for debugging
+        Log.d(TAG, "Generated round-robin polling sequence with ${sequence.size} entries")
+
+        return sequence
     }
 
     /**
