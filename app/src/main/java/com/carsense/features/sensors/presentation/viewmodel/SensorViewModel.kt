@@ -248,7 +248,7 @@ class SensorViewModel @Inject constructor(
                     )
 
                 // Use a fixed refresh rate of 1ms instead of the dynamic one
-                val baseRefreshRate = 1L
+                val baseRefreshRate = 200L
 
                 // Set up monitoring with prioritization
                 sensorRepository.startPrioritizedMonitoring(
@@ -919,7 +919,7 @@ class SensorViewModel @Inject constructor(
                     )
 
                 // Use a fixed refresh rate of 1ms
-                val baseRefreshRate = 1L
+                val baseRefreshRate = 200L
 
                 // Restart monitoring with the fixed refresh rate
                 sensorRepository.startPrioritizedMonitoring(

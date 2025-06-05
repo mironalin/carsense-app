@@ -24,6 +24,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -33,6 +36,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -230,158 +234,115 @@ constructor(
         var localReading: SensorReading? = null
         var localErrorResult = false
         var localErrorMessage = ""
+        var rawResponse: com.carsense.features.obd2.data.OBD2Response? = null
 
-        try {
-            Log.d(TAG, "Detecting supported PIDs...")
-
-            val supportedPIDsCommand =
-                allSensorCommands["00"] as? SupportedPIDsCommand
-                    ?: run {
-                        Log.e(
-                            TAG,
-                            "SupportedPIDsCommand (00) not found in allSensorCommands registry."
-                        )
-                        return false // Should not happen if registered in init
-                    }
-
-            // Execute the command and collect the first (and typically only) response
-            // Adding a timeout for this specific operation
-            withTimeoutOrNull(COMMAND_TIMEOUT_MS) {
-                obd2Service.executeOBD2Command(supportedPIDsCommand)
-                    .collect { obd2Response: com.carsense.features.obd2.data.OBD2Response
-                        -> // Explicit type
-                        if (obd2Response.isError) {
-                            Log.e(
-                                TAG,
-                                "Error response from supported PIDs command: ${obd2Response.decodedValue}"
-                            )
-                            localErrorResult = true
-                            localErrorMessage = obd2Response.decodedValue
-                            throw CancellationException("Error received for PID support detection")
-                        } else {
-                            localReading =
-                                SensorReading(
-                                    name = supportedPIDsCommand.displayName,
-                                    value = obd2Response.decodedValue,
-                                    unit = supportedPIDsCommand.unit,
-                                    pid = supportedPIDsCommand.pid,
-                                    mode = supportedPIDsCommand.mode,
-                                    rawValue = obd2Response.rawData,
-                                    isError = false,
-                                    timestamp = obd2Response.timestamp // Added timestamp
-                                )
-                            Log.d(
-                                TAG,
-                                "Successfully received and decoded PID support: ${obd2Response.decodedValue}"
-                            )
-                            throw CancellationException("Successfully collected PID support data")
-                        }
-                    }
-            }
+        val supportedPIDsCommand =
+            allSensorCommands["00"] as? SupportedPIDsCommand
                 ?: run {
-                    Log.w(TAG, "Timeout detecting supported PIDs after ${COMMAND_TIMEOUT_MS}ms")
-                    if (!localErrorResult) {
-                        localErrorMessage = "Timeout waiting for PID support response"
-                        localErrorResult = true
-                    }
-                }
-
-            // This part is reached if timeout occurred OR flow completed without cancellation
-            // (which shouldn't happen if data/error was processed correctly with cancellation)
-            if (localErrorResult) {
-                Log.e(
-                    TAG,
-                    "Failed to detect supported PIDs due to error/timeout: $localErrorMessage"
-                )
-                return useHardcodedPIDSupport()
-            }
-
-            if (localReading == null) {
-                // This case implies timeout without error, or flow completed unexpectedly
-                Log.e(
-                    TAG,
-                    "No valid reading obtained from supported PIDs command (timeout or unexpected flow completion)."
-                )
-                return useHardcodedPIDSupport()
-            }
-
-            // If we reach here, it means localReading is set, and no error flagged from within
-            // collect/timeout
-            // This path should ideally not be taken if CancellationException logic works as
-            // intended.
-            // For safety, process localReading if it somehow exists here.
-            Log.w(TAG, "Processing PID support data outside of cancellation path, check logic.")
-            val supportedPIDs =
-                localReading!!.value.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-            Log.d(TAG, "Detected supported PIDs (fallback path): $supportedPIDs")
-
-            if (supportedPIDs.isEmpty()) {
-                Log.w(
-                    TAG,
-                    "No PIDs reported as supported (fallback path), using hardcoded fallbacks"
-                )
-                return useHardcodedPIDSupport()
-            }
-
-            val finalSupportedPIDsCommand =
-                allSensorCommands["00"] as? SupportedPIDsCommand
-                    ?: return useHardcodedPIDSupport()
-            supportedSensorCommands.clear()
-            for (pid in supportedPIDs) {
-                allSensorCommands[pid]?.let { command -> supportedSensorCommands[pid] = command }
-            }
-            supportedSensorCommands["00"] = finalSupportedPIDsCommand
-
-            Log.d(
-                TAG,
-                "Updated supported sensor commands (fallback path): ${supportedSensorCommands.keys}"
-            )
-            supportDetectionRun = true
-            return true
-        } catch (e: CancellationException) {
-            // This is the expected path for successful collection or handled error
-            if (localReading != null && !localErrorResult) {
-                Log.d(TAG, "PID support detection successful (flow cancelled post-collection).")
-                val supportedPIDs =
-                    localReading!!.value.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                Log.d(TAG, "Detected supported PIDs (post-cancellation): $supportedPIDs")
-
-                if (supportedPIDs.isEmpty()) {
-                    Log.w(
+                    Log.e(
                         TAG,
-                        "No PIDs reported as supported (post-cancellation), using hardcoded fallbacks"
+                        "SupportedPIDsCommand (00) not found in allSensorCommands registry."
                     )
-                    return useHardcodedPIDSupport()
+                    return false // Should not happen if registered in init
                 }
-                val supportedPIDsCommand =
-                    allSensorCommands["00"] as? SupportedPIDsCommand
-                        ?: return useHardcodedPIDSupport()
-                supportedSensorCommands.clear()
-                for (pid in supportedPIDs) {
-                    allSensorCommands[pid]?.let { command ->
-                        supportedSensorCommands[pid] = command
-                    }
+
+        // Only lock the mutex for communication with the adapter
+        obd2CommunicationMutex.withLock {
+            try {
+                Log.d(TAG, "Detecting supported PIDs...")
+
+                // Execute the command and collect the first response
+                withTimeoutOrNull(COMMAND_TIMEOUT_MS) {
+                    obd2Service.executeOBD2Command(supportedPIDsCommand)
+                        .collect { obd2Response ->
+                            rawResponse = obd2Response
+                            throw CancellationException("Received PID support response, breaking flow")
+                        }
+                } ?: run {
+                    Log.w(TAG, "Timeout detecting supported PIDs after ${COMMAND_TIMEOUT_MS}ms")
+                    localErrorResult = true
+                    localErrorMessage = "Timeout waiting for PID support response"
                 }
-                supportedSensorCommands["00"] = supportedPIDsCommand
+            } catch (e: CancellationException) {
+                // Expected for breaking the collection flow
+                Log.d(TAG, "Collection cancelled (expected) for PID support: ${e.message}")
+            } catch (e: Exception) {
+                Log.e(TAG, "Generic exception during PID support detection: ${e.message}", e)
+                localErrorResult = true
+                localErrorMessage = "Error: ${e.message}"
+            }
+        } // End of mutex lock - adapter is now free
+
+        // Process the response outside the mutex lock
+        if (rawResponse != null) {
+            if (rawResponse!!.isError) {
+                Log.e(
+                    TAG,
+                    "Error response from supported PIDs command: ${rawResponse!!.decodedValue}"
+                )
+                localErrorResult = true
+                localErrorMessage = rawResponse!!.decodedValue
+            } else {
+                localReading = SensorReading(
+                    name = supportedPIDsCommand.displayName,
+                    value = rawResponse!!.decodedValue,
+                    unit = supportedPIDsCommand.unit,
+                    pid = supportedPIDsCommand.pid,
+                    mode = supportedPIDsCommand.mode,
+                    rawValue = rawResponse!!.rawData,
+                    isError = false,
+                    timestamp = rawResponse!!.timestamp
+                )
                 Log.d(
                     TAG,
-                    "Updated supported sensor commands (post-cancellation): ${supportedSensorCommands.keys}"
+                    "Successfully received and decoded PID support: ${rawResponse!!.decodedValue}"
                 )
-                supportDetectionRun = true
-                return true
-            } else if (localErrorResult) {
-                Log.e(
-                    TAG,
-                    "PID support detection failed (flow cancelled due to error): $localErrorMessage"
-                )
-                return useHardcodedPIDSupport()
             }
-            Log.w(TAG, "PID support detection flow cancelled without success or specific error.", e)
-            return useHardcodedPIDSupport() // Treat other cancellations as failure for this op
-        } catch (e: Exception) {
-            Log.e(TAG, "Generic exception during PID support detection: ${e.message}", e)
+        }
+
+        // This part is reached if timeout occurred OR flow completed
+        if (localErrorResult) {
+            Log.e(
+                TAG,
+                "Failed to detect supported PIDs due to error/timeout: $localErrorMessage"
+            )
             return useHardcodedPIDSupport()
         }
+
+        if (localReading == null) {
+            // This case implies timeout without error, or flow completed unexpectedly
+            Log.e(
+                TAG,
+                "No valid reading obtained from supported PIDs command (timeout or unexpected flow completion)."
+            )
+            return useHardcodedPIDSupport()
+        }
+
+        // Process the PID support data
+        val supportedPIDs =
+            localReading.value.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        Log.d(TAG, "Detected supported PIDs: $supportedPIDs")
+
+        if (supportedPIDs.isEmpty()) {
+            Log.w(
+                TAG,
+                "No PIDs reported as supported, using hardcoded fallbacks"
+            )
+            return useHardcodedPIDSupport()
+        }
+
+        supportedSensorCommands.clear()
+        for (pid in supportedPIDs) {
+            allSensorCommands[pid]?.let { command -> supportedSensorCommands[pid] = command }
+        }
+        supportedSensorCommands["00"] = supportedPIDsCommand
+
+        Log.d(
+            TAG,
+            "Updated supported sensor commands: ${supportedSensorCommands.keys}"
+        )
+        supportDetectionRun = true
+        return true
     }
 
     /**
@@ -486,7 +447,9 @@ constructor(
         var operationErrorResult = false
         var operationErrorMessage = "Request failed"
         var operationFinalReading: SensorReading? = null
+        var rawResponse: com.carsense.features.obd2.data.OBD2Response? = null
 
+        // This section acquires the mutex ONLY for communicating with the adapter
         obd2CommunicationMutex.withLock {
             try {
                 Log.d(
@@ -497,124 +460,34 @@ constructor(
                 var attempt = 0
                 val maxAttempts = 2
 
-                while (attempt < maxAttempts &&
-                    operationFinalReading == null &&
-                    !operationErrorResult
-                ) {
+                while (attempt < maxAttempts && rawResponse == null && !operationErrorResult) {
                     attempt++
                     if (attempt > 1) {
                         Log.d(TAG, "Retrying command for $sensorId, attempt $attempt")
                         delay(200)
                     }
 
-                    var currentAttemptError = false
-                    var currentAttemptErrorMessage = ""
-
+                    // Only collect the response from the adapter, don't process it yet
                     withTimeoutOrNull(COMMAND_TIMEOUT_MS) {
                         obd2Service.executeOBD2Command(command)
-                            .collect { obd2Response: com.carsense.features.obd2.data.OBD2Response ->
-                                if (obd2Response.isError) {
-                                    currentAttemptErrorMessage = obd2Response.decodedValue
-                                    Log.w(
-                                        TAG,
-                                        "Error response for $sensorId (attempt $attempt): $currentAttemptErrorMessage"
-                                    )
-                                    if (currentAttemptErrorMessage.contains(
-                                            "SEARCHING",
-                                            ignoreCase = true
-                                        ) ||
-                                        currentAttemptErrorMessage.contains(
-                                            "BUSINIT",
-                                            ignoreCase = true
-                                        ) && attempt < maxAttempts
-                                    ) {
-                                        // Log and allow retry loop to continue
-                                        Log.d(
-                                            TAG,
-                                            "Adapter possibly initializing for $sensorId, will retry."
-                                        )
-                                        currentAttemptError =
-                                            true // Mark this attempt as having an error, but
-                                        // retryable
-                                    } else {
-                                        operationErrorResult =
-                                            true // Non-retryable error for the whole operation
-                                        operationErrorMessage = currentAttemptErrorMessage
-                                    }
-                                    throw CancellationException(
-                                        "Error or retryable condition for $sensorId in attempt $attempt"
-                                    )
-                                } else {
-                                    val currentVal = obd2Response.decodedValue
-                                    if (currentVal == "FFFFFFFF" ||
-                                        currentVal == "-1" ||
-                                        currentVal.isBlank()
-                                    ) {
-                                        currentAttemptErrorMessage =
-                                            "Invalid data value: $currentVal"
-                                        Log.w(
-                                            TAG,
-                                            "Invalid data for $sensorId: $currentVal (attempt $attempt)"
-                                        )
-                                        operationErrorResult =
-                                            true // Treat as a non-retryable error for the whole
-                                        // operation
-                                        operationErrorMessage = currentAttemptErrorMessage
-                                        throw CancellationException(
-                                            "Invalid data value for $sensorId in attempt $attempt"
-                                        )
-                                    }
-                                    operationFinalReading =
-                                        SensorReading(
-                                            name = command.displayName,
-                                            value = currentVal,
-                                            unit = command.unit,
-                                            pid = command.pid,
-                                            mode = command.mode,
-                                            rawValue = obd2Response.rawData,
-                                            isError = false,
-                                            timestamp = obd2Response.timestamp
-                                        )
-                                    Log.d(
-                                        TAG,
-                                        "Success for $sensorId (attempt $attempt): $currentVal ${command.unit}"
-                                    )
-                                    throw CancellationException(
-                                        "Successfully collected reading for $sensorId in attempt $attempt"
-                                    )
-                                }
+                            .collect { obd2Response ->
+                                rawResponse = obd2Response
+                                throw CancellationException("Received response, breaking flow")
                             }
-                    }
-                        ?: run {
-                            Log.w(
-                                TAG,
-                                "Timeout for $sensorId (attempt $attempt) after ${COMMAND_TIMEOUT_MS}ms"
-                            )
-                            if (!operationErrorResult
-                            ) { // Don't overwrite a more specific error
-                                currentAttemptErrorMessage = "Timeout for attempt $attempt"
-                                // If timeout on last attempt, it becomes an operation error
-                                if (attempt == maxAttempts) {
-                                    operationErrorResult = true
-                                    operationErrorMessage = currentAttemptErrorMessage
-                                } else {
-                                    // Allow retry if not max attempts
-                                    currentAttemptError = true
-                                }
-                            }
+                    } ?: run {
+                        Log.w(
+                            TAG,
+                            "Timeout for $sensorId (attempt $attempt) after ${COMMAND_TIMEOUT_MS}ms"
+                        )
+                        if (attempt == maxAttempts) {
+                            operationErrorResult = true
+                            operationErrorMessage = "Timeout for all attempts"
                         }
-                    if (operationFinalReading != null) break
-                    if (operationErrorResult)
-                        break // Break if a non-retryable error for the whole op occurred
-                    // If currentAttemptError is true but operationErrorResult is false, it was a
-                    // retryable error, so loop continues
+                    }
                 }
             } catch (e: CancellationException) {
-                // Expected for breaking .collect{} or if withTimeoutOrNull is cancelled by an outer
-                // scope.
-                // The state of operationFinalReading and operationErrorResult determines the
-                // outcome.
-                Log.d(TAG, "Cancellation in requestReading for $sensorId: ${e.message}")
+                // Expected for breaking the collection flow
+                Log.d(TAG, "Collection cancelled (expected) for $sensorId: ${e.message}")
             } catch (e: Exception) {
                 Log.e(
                     TAG,
@@ -624,7 +497,35 @@ constructor(
                 operationErrorResult = true
                 operationErrorMessage = "Network/IO Error: ${e.message}"
             }
-        } // End of Mutex lock
+        } // End of Mutex lock - adapter is now free to receive other commands
+
+        // Process the response outside the mutex lock
+        if (rawResponse != null) {
+            if (rawResponse!!.isError) {
+                Log.w(TAG, "Error response for $sensorId: ${rawResponse!!.decodedValue}")
+                operationErrorResult = true
+                operationErrorMessage = rawResponse!!.decodedValue
+            } else {
+                val currentVal = rawResponse!!.decodedValue
+                if (currentVal == "FFFFFFFF" || currentVal == "-1" || currentVal.isBlank()) {
+                    Log.w(TAG, "Invalid data for $sensorId: $currentVal")
+                    operationErrorResult = true
+                    operationErrorMessage = "Invalid data value: $currentVal"
+                } else {
+                    operationFinalReading = SensorReading(
+                        name = command.displayName,
+                        value = currentVal,
+                        unit = command.unit,
+                        pid = command.pid,
+                        mode = command.mode,
+                        rawValue = rawResponse!!.rawData,
+                        isError = false,
+                        timestamp = rawResponse!!.timestamp
+                    )
+                    Log.d(TAG, "Success for $sensorId: $currentVal ${command.unit}")
+                }
+            }
+        }
 
         return if (operationFinalReading != null) {
             latestReadings[sensorId] = operationFinalReading!!
@@ -786,20 +687,20 @@ constructor(
         // Disable batch mode (adapter doesn't support it properly yet)
         val useBatchMode = false
 
+        // Calculate optimal batch size based on update interval and sensor count
+        val batchSize = determineOptimalBatchSize(sensorIds.size, updateIntervalMs)
+
         // Start the monitoring coroutine
         monitoringJob =
             CoroutineScope(Dispatchers.IO).launch {
                 Log.d(TAG, "Starting monitoring for specific sensors: $sensorIds")
-
-                // For individual mode, keep a small delay to ensure proper handling
-                val betweenSensorDelayMs = 1L
 
                 // Use a smaller buffer for calculations
                 val safeIntervalMs = updateIntervalMs * 0.9
 
                 Log.d(
                     TAG,
-                    "Update interval: ${updateIntervalMs}ms, between sensors delay: ${betweenSensorDelayMs}ms, batch mode: $useBatchMode"
+                    "Update interval: ${updateIntervalMs}ms, batch size: $batchSize, batch mode: $useBatchMode"
                 )
 
                 while (isActive && isMonitoring) {
@@ -811,34 +712,33 @@ constructor(
                         continue
                     }
 
-                    // Process sensors one by one (more reliable)
-                    for (sensorId in sensorIds) {
-                        try {
-                            if (allSensorCommands.containsKey(sensorId)) {
-                                requestReading(sensorId)
-                                if (sensorIds.size > 1) {
-                                    delay(betweenSensorDelayMs)
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error monitoring sensor $sensorId", e)
+                    try {
+                        // Process all sensors in the optimal batch size
+                        if (sensorIds.isNotEmpty()) {
+                            readMultipleSensorsConcurrently(sensorIds)
                         }
-                    }
 
-                    // Calculate remaining time in this update cycle
-                    val cycleDuration = System.currentTimeMillis() - cycleStartTime
-                    val remainingTime = updateIntervalMs - cycleDuration
+                        // Calculate remaining time in this update cycle
+                        val cycleDuration = System.currentTimeMillis() - cycleStartTime
+                        val remainingTime = updateIntervalMs - cycleDuration
 
-                    // Wait for the remaining time until next update cycle, with reduced minimum
-                    // wait
-                    if (remainingTime > 50) {
-                        delay(remainingTime)
-                    } else {
-                        Log.w(
-                            TAG,
-                            "Sensor polling cycle took longer than update interval (${cycleDuration}ms > ${updateIntervalMs}ms)"
-                        )
-                        // delay(50) // Use 50ms as minimum delay
+                        // Wait for the remaining time until next update cycle, with reduced minimum
+                        // wait
+                        if (remainingTime > 50) {
+                            delay(remainingTime)
+                        } else {
+                            Log.w(
+                                TAG,
+                                "Sensor polling cycle took longer than update interval (${cycleDuration}ms > ${updateIntervalMs}ms)"
+                            )
+                            delay(50) // Use 50ms as minimum delay
+                        }
+                    } catch (e: CancellationException) {
+                        Log.d(TAG, "Monitoring cycle was cancelled")
+                        break
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error in monitoring cycle: ${e.message}", e)
+                        delay(100) // Brief delay to avoid rapid error loops
                     }
                 }
 
@@ -956,62 +856,58 @@ constructor(
         var successful = false
         val maxAttempts = 3
 
-        obd2CommunicationMutex.withLock {
-            for (attempt in 1..maxAttempts) {
-                if (!bluetoothController.isConnected.value) {
-                    Log.w(TAG, "Not connected, aborting prime attempt $attempt")
-                    break
-                }
+        for (attempt in 1..maxAttempts) {
+            if (!bluetoothController.isConnected.value) {
+                Log.w(TAG, "Not connected, aborting prime attempt $attempt")
+                break
+            }
+
+            var rawResponse: com.carsense.features.obd2.data.OBD2Response? = null
+
+            // Only lock the mutex for communication with the adapter
+            obd2CommunicationMutex.withLock {
                 try {
                     Log.d(TAG, "Priming attempt $attempt with ${rpmCommand.getCommand()}")
-                    var responseReceived = false
                     withTimeoutOrNull(1000L) { // Shorter timeout for priming
                         obd2Service.executeOBD2Command(rpmCommand)
-                            .collect { obd2Response: com.carsense.features.obd2.data.OBD2Response ->
-                                responseReceived = true
-                                if (obd2Response.isError) {
-                                    Log.w(
-                                        TAG,
-                                        "Priming attempt $attempt error: ${obd2Response.decodedValue}"
-                                    )
-                                    if (obd2Response.decodedValue.contains(
-                                            "SEARCHING",
-                                            ignoreCase = true
-                                        ) ||
-                                        obd2Response.decodedValue.contains(
-                                            "BUSINIT",
-                                            ignoreCase = true
-                                        )
-                                    ) {
-                                        // Allow retry
-                                    } else {
-                                        // For other errors, might stop trying earlier, but for priming,
-                                        // retrying is generally safe.
-                                    }
-                                } else {
-                                    Log.d(
-                                        TAG,
-                                        "Priming attempt $attempt success: ${obd2Response.decodedValue}"
-                                    )
-                                    successful = true
-                                }
-                                throw CancellationException(
-                                    "Collected response for priming attempt $attempt"
-                                ) // Stop collecting for this attempt
+                            .collect { obd2Response ->
+                                rawResponse = obd2Response
+                                throw CancellationException("Received response for priming, breaking flow")
                             }
+                    } ?: run {
+                        Log.w(TAG, "Priming attempt $attempt timed out.")
                     }
-                        ?: run { Log.w(TAG, "Priming attempt $attempt timed out.") }
-
-                    if (successful) break // Exit loop if priming was successful
-                    if (attempt < maxAttempts)
-                        delay((200 * attempt).toLong()) // Delay before next attempt
                 } catch (e: CancellationException) {
-                    Log.d(TAG, "Cancellation during priming attempt $attempt: ${e.message}")
-                    if (successful) break
+                    // Expected for breaking collection flow
+                    Log.d(
+                        TAG,
+                        "Collection cancelled (expected) for priming attempt $attempt: ${e.message}"
+                    )
                 } catch (e: Exception) {
                     Log.e(TAG, "Exception during priming attempt $attempt: ${e.message}")
-                    if (attempt < maxAttempts) delay((200 * attempt).toLong()) else break
                 }
+            } // End of mutex lock - adapter is now free
+
+            // Process the response outside the mutex lock
+            if (rawResponse != null) {
+                if (rawResponse!!.isError) {
+                    Log.w(TAG, "Priming attempt $attempt error: ${rawResponse!!.decodedValue}")
+                    if (rawResponse!!.decodedValue.contains("SEARCHING", ignoreCase = true) ||
+                        rawResponse!!.decodedValue.contains("BUSINIT", ignoreCase = true)
+                    ) {
+                        // Allow retry
+                    } else {
+                        // For other errors, might stop trying earlier, but for priming, retrying is generally safe.
+                    }
+                } else {
+                    Log.d(TAG, "Priming attempt $attempt success: ${rawResponse!!.decodedValue}")
+                    successful = true
+                    break // Exit loop if priming was successful
+                }
+            }
+
+            if (attempt < maxAttempts) {
+                delay((200 * attempt).toLong()) // Delay before next attempt
             }
         }
 
@@ -1264,6 +1160,10 @@ constructor(
             lowPrioritySensors
         )
 
+        // Calculate optimal batch size based on polling sequence
+        // This determines how many sensors we process in each cycle
+        val batchSize = determineOptimalBatchSize(pollingSequence.size, baseRefreshRateMs)
+
         // Start the monitoring coroutine with the supervisor job to prevent error propagation
         monitoringJob =
             sensorScope.launch {
@@ -1279,14 +1179,18 @@ constructor(
                     }
 
                     try {
-                        // Get the next sensor to poll in the round-robin sequence
-                        val sensorId = pollingSequence[currentIndex]
+                        // Get the next batch of sensors to poll from the round-robin sequence
+                        val sensorBatch = mutableListOf<String>()
+                        for (i in 0 until batchSize) {
+                            val index = (currentIndex + i) % pollingSequence.size
+                            sensorBatch.add(pollingSequence[index])
+                        }
 
-                        // Process the sensor
-                        processIndividualSensors(listOf(sensorId), betweenSensorDelayMs)
+                        // Process the batch concurrently
+                        readMultipleSensorsConcurrently(sensorBatch)
 
-                        // Move to next sensor in the sequence
-                        currentIndex = (currentIndex + 1) % pollingSequence.size
+                        // Move to next batch in the sequence
+                        currentIndex = (currentIndex + batchSize) % pollingSequence.size
 
                         // Calculate remaining time in this update cycle
                         val cycleDuration = System.currentTimeMillis() - cycleStartTime
@@ -1322,6 +1226,25 @@ constructor(
 
                 Log.d(TAG, "Prioritized sensor monitoring stopped")
             }
+    }
+
+    /**
+     * Determines the optimal batch size for sensor processing based on polling sequence size and refresh rate.
+     * This balances between processing enough sensors per cycle and keeping the cycle time within the refresh rate.
+     */
+    private fun determineOptimalBatchSize(sequenceSize: Int, refreshRateMs: Long): Int {
+        // Calculate based on average query time and refresh rate
+        val estimatedBatchSize = (refreshRateMs / (averageSensorQueryTimeMs * 1.5)).toInt()
+
+        // Apply reasonable constraints
+        return when {
+            estimatedBatchSize <= 0 -> 1 // Minimum of 1
+            estimatedBatchSize > sequenceSize -> sequenceSize // Don't exceed sequence size
+            estimatedBatchSize > 5 -> 5 // Cap at 5 to prevent overwhelming the adapter
+            else -> estimatedBatchSize
+        }.also {
+            Log.d(TAG, "Using optimal batch size of $it sensors per cycle")
+        }
     }
 
     /**
@@ -1367,26 +1290,163 @@ constructor(
     }
 
     /**
-     * Processes sensors individually with a delay between each.
+     * Processes sensors concurrently with proper mutex handling.
      *
-     * This method is used to process sensors individually with a delay between each. It is used to
-     * process sensors individually with a delay between each.
+     * This method processes the sensors in parallel while ensuring the adapter
+     * communication is properly serialized.
      */
     private suspend fun processIndividualSensors(sensorIds: List<String>, delayMs: Long) {
-        for (sensorId in sensorIds) {
+        // Filter for valid sensor IDs
+        val validSensorIds = sensorIds.filter { allSensorCommands.containsKey(it) }
+
+        if (validSensorIds.isEmpty()) return
+
+        try {
+            // Use the concurrent reading method to process all sensors
+            readMultipleSensorsConcurrently(validSensorIds)
+        } catch (e: CancellationException) {
+            // Expected during shutdown
+            Log.d(TAG, "Sensor processing was cancelled")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing sensors concurrently: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Gets a raw response from the adapter for a specific sensor.
+     * This method is protected by the mutex to ensure only one command is sent to the adapter at a time.
+     *
+     * @param sensorId The ID of the sensor to read
+     * @return The raw OBD2Response from the adapter, or null if an error occurred
+     */
+    private suspend fun getRawResponseFromAdapter(sensorId: String): com.carsense.features.obd2.data.OBD2Response? {
+        val command =
+            supportedSensorCommands[sensorId] ?: allSensorCommands[sensorId] ?: return null
+        val obd2Service = bluetoothController.getObd2Service() ?: return null
+
+        var rawResponse: com.carsense.features.obd2.data.OBD2Response? = null
+
+        // Lock the mutex ONLY for communication with the adapter
+        obd2CommunicationMutex.withLock {
             try {
-                if (allSensorCommands.containsKey(sensorId)) {
-                    requestReading(sensorId)
-                    if (sensorIds.size > 1) {
-                        // delay(delayMs)
-                    }
+                Log.d(TAG, "Requesting raw reading for $sensorId: ${command.getCommand()}")
+
+                // Only collect the response from the adapter
+                withTimeoutOrNull(COMMAND_TIMEOUT_MS) {
+                    obd2Service.executeOBD2Command(command)
+                        .collect { response ->
+                            rawResponse = response
+                            throw CancellationException("Received response, breaking flow")
+                        }
+                } ?: run {
+                    Log.w(TAG, "Timeout getting response for $sensorId")
                 }
             } catch (e: CancellationException) {
-                // Log and continue with the next sensor
-                Log.d(TAG, "Processing of sensor $sensorId was cancelled")
+                // Expected for breaking the collection flow
+                Log.d(TAG, "Collection cancelled (expected) for $sensorId")
             } catch (e: Exception) {
-                Log.e(TAG, "Error monitoring sensor $sensorId", e)
+                Log.e(TAG, "Error getting raw response for $sensorId: ${e.message}", e)
             }
+        } // Mutex released here - adapter is free to accept next command
+
+        return rawResponse
+    }
+
+    /**
+     * Processes a raw adapter response into a SensorReading.
+     * This happens outside the mutex lock so it can be done in parallel with other operations.
+     *
+     * @param sensorId The ID of the sensor
+     * @param rawResponse The raw response from the adapter
+     * @return A SensorReading object, or null if the response couldn't be processed
+     */
+    private fun processRawResponse(
+        sensorId: String,
+        rawResponse: com.carsense.features.obd2.data.OBD2Response?
+    ): SensorReading? {
+        if (rawResponse == null) return null
+
+        val command =
+            supportedSensorCommands[sensorId] ?: allSensorCommands[sensorId] ?: return null
+
+        if (rawResponse.isError) {
+            Log.w(TAG, "Error response for $sensorId: ${rawResponse.decodedValue}")
+            return null
+        }
+
+        val currentVal = rawResponse.decodedValue
+        if (currentVal == "FFFFFFFF" || currentVal == "-1" || currentVal.isBlank()) {
+            Log.w(TAG, "Invalid data for $sensorId: $currentVal")
+            return null
+        }
+
+        val reading = SensorReading(
+            name = command.displayName,
+            value = currentVal,
+            unit = command.unit,
+            pid = command.pid,
+            mode = command.mode,
+            rawValue = rawResponse.rawData,
+            isError = false,
+            timestamp = rawResponse.timestamp
+        )
+
+        Log.d(TAG, "Successfully processed reading for $sensorId: $currentVal ${command.unit}")
+        return reading
+    }
+
+    /**
+     * Reads multiple sensors concurrently.
+     * Each sensor's raw response is obtained sequentially (protected by mutex),
+     * but the response processing happens in parallel.
+     *
+     * @param sensorIds List of sensor IDs to read
+     * @return List of successfully read sensor readings
+     */
+    suspend fun readMultipleSensorsConcurrently(sensorIds: List<String>): List<SensorReading> {
+        if (!supportDetectionRun) {
+            detectSupportedPIDs()
+        }
+
+        return coroutineScope {
+            // Map each sensor ID to an async task
+            val deferredReadings = sensorIds.map { sensorId ->
+                async(Dispatchers.Default) {
+                    val startTime = System.currentTimeMillis()
+
+                    // Get raw response (serialized by mutex)
+                    val rawResponse = getRawResponseFromAdapter(sensorId)
+
+                    // Process response (can happen in parallel)
+                    val reading = processRawResponse(sensorId, rawResponse)
+
+                    if (reading != null) {
+                        // Update shared state with the new reading
+                        withContext(Dispatchers.Main) {
+                            latestReadings[sensorId] = reading
+                            _sensorReadings.emit(reading)
+
+                            // Add to snapshot collector
+                            val snapshotCompleted = sensorSnapshotCollector.addReading(reading)
+                            if (snapshotCompleted) {
+                                Log.d(TAG, "Completed a full circle snapshot with sensor $sensorId")
+                            }
+                        }
+
+                        val queryTime = System.currentTimeMillis() - startTime
+                        updateAverageQueryTime(queryTime)
+                        Log.i(
+                            TAG,
+                            "Successfully read $sensorId: ${reading.value} in ${queryTime}ms"
+                        )
+                    }
+
+                    reading
+                }
+            }
+
+            // Wait for all readings to complete and filter out nulls
+            deferredReadings.awaitAll().filterNotNull()
         }
     }
 }

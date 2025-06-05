@@ -86,6 +86,6 @@ interface SensorRepository {
         highPrioritySensors: List<String>,
         mediumPrioritySensors: List<String>,
         lowPrioritySensors: List<String>,
-        baseRefreshRateMs: Long = 1
+        baseRefreshRateMs: Long = 200
     )
 }
