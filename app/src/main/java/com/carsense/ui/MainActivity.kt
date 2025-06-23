@@ -50,7 +50,7 @@ import com.carsense.core.auth.TokenStorageService
 import com.carsense.features.vehicles.data.db.VehicleDao
 import com.carsense.features.bluetooth.presentation.intent.BluetoothIntent
 import com.carsense.features.bluetooth.presentation.viewmodel.BluetoothViewModel
-import com.carsense.features.location.data.service.ForegroundLocationService
+// ForegroundLocationService import removed - location tracking handled by DiagnosticLocationService
 import com.carsense.core.navigation.AppNavigation
 import com.carsense.core.permissions.LocationPermissionHelper
 import com.carsense.core.navigation.LocalNavController
@@ -155,18 +155,12 @@ class MainActivity : ComponentActivity() {
                         if (bluetoothState.isConnected) {
                             // Permissions should have been requested already.
                             // We just need to ensure they are still granted before starting.
-                            Timber.d("Bluetooth connected, attempting to start LocationService if permissions are granted.")
-                            if (LocationPermissionHelper.hasRequiredLocationPermissions(this@MainActivity)) {
-                                triggerLocationServiceStart()
-                            } else {
-                                // This case should ideally not be hit if permissions were handled on startup.
-                                // But as a fallback, or if permissions were revoked.
-                                Timber.w("Bluetooth connected, but required location permissions are missing. Requesting again.")
-                                checkAndRequestLocationPermissions()
-                            }
+                            Timber.d("Bluetooth connected, location tracking will be handled by DiagnosticLocationService after diagnostic creation.")
+                            // Location tracking will be started automatically after diagnostic session is created
+                            // No need to start location service directly here
                         } else {
-                            Timber.d("Bluetooth disconnected, stopping location service...")
-                            stopLocationService()
+                            Timber.d("Bluetooth disconnected, location tracking will be stopped by DiagnosticLocationService.")
+                            // Location tracking will be stopped automatically in BluetoothViewModel.disconnectFromDevice()
                         }
                     }
 
@@ -348,26 +342,16 @@ class MainActivity : ComponentActivity() {
                             Timber.d("Background location permission was already GRANTED")
                             // Both foreground and background are now granted, attempt to start service
                             // This will also be caught by the LaunchedEffect if BT is connected
-                            if (bluetoothAdapter?.isEnabled == true && LocationPermissionHelper.hasRequiredLocationPermissions(
-                                    this
-                                )
-                            ) {
-                                triggerLocationServiceStart()
-                            }
+                            // Location tracking will be handled by DiagnosticLocationService after diagnostic creation
+                            // No need to start location service directly here
                         } else {
                             Timber.d("Foreground granted, background NOT granted. Showing rationale for background.")
                             showBackgroundRationaleDialogState = true
                         }
                     } else {
                         // Pre-Q, foreground grant is enough
-                        Timber.d("Foreground granted (Pre-Q). Attempting to start service.")
-                        // This will also be caught by the LaunchedEffect if BT is connected
-                        if (bluetoothAdapter?.isEnabled == true && LocationPermissionHelper.hasRequiredLocationPermissions(
-                                this
-                            )
-                        ) {
-                            triggerLocationServiceStart()
-                        }
+                        Timber.d("Foreground granted (Pre-Q). Ready for location tracking.")
+                        // Location tracking will be handled by DiagnosticLocationService after diagnostic creation
                     }
                 } else {
                     Timber.w("Foreground Location permission DENIED")
@@ -382,12 +366,8 @@ class MainActivity : ComponentActivity() {
                     Timber.d("Background Location permission GRANTED after request")
                     // Both foreground (previously granted) and background are now granted
                     // This will also be caught by the LaunchedEffect if BT is connected
-                    if (bluetoothAdapter?.isEnabled == true && LocationPermissionHelper.hasRequiredLocationPermissions(
-                            this
-                        )
-                    ) {
-                        triggerLocationServiceStart()
-                    }
+                    // Location tracking will be handled by DiagnosticLocationService after diagnostic creation
+                    // No need to start location service directly here
                 } else {
                     Timber.w("Background Location permission DENIED after request")
                     // Handle background permission denial. User might still be able to use app with foreground only.
@@ -413,12 +393,8 @@ class MainActivity : ComponentActivity() {
                 // All necessary permissions are already granted (either pre-Q, or Q+ with background)
                 Timber.d("All necessary location permissions (foreground and, if applicable, background) are already granted.")
                 // Attempt to start service if BT is also connected - this check is also in LaunchedEffect
-                if (bluetoothAdapter?.isEnabled == true && LocationPermissionHelper.hasRequiredLocationPermissions(
-                        this
-                    )
-                ) {
-                    triggerLocationServiceStart()
-                }
+                // Location tracking will be handled by DiagnosticLocationService after diagnostic creation
+                // No need to start location service directly here
             }
         } else {
             // Foreground permissions are not granted, request them.
@@ -427,43 +403,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun triggerLocationServiceStart() {
-        lifecycleScope.launch {
-            // Attempt to get the latest vehicle
-            val latestVehicle = vehicleDao.getLatestVehicle()
-
-            if (latestVehicle == null) {
-                Timber.e("Cannot start ForegroundLocationService: No vehicles found in the database.")
-                // Optionally, inform the user or disable location tracking features
-                return@launch
-            }
-
-            val vehicleUUID = latestVehicle.uuid
-
-            if (vehicleUUID.isBlank()) {
-                Timber.e("Cannot start ForegroundLocationService: Invalid vehicleUUID (blank) obtained from DB.")
-                return@launch
-            }
-
-            Timber.d("All necessary permissions granted. Starting ForegroundLocationService for vehicle UUID: $vehicleUUID")
-            val intent = Intent(this@MainActivity, ForegroundLocationService::class.java).apply {
-                action = ForegroundLocationService.ACTION_START_LOCATION_SERVICE
-                putExtra(ForegroundLocationService.EXTRA_VEHICLE_UUID, vehicleUUID)
-            }
-            ContextCompat.startForegroundService(this@MainActivity, intent)
-        }
-    }
-
-    private fun stopLocationService() {
-        Timber.d("Stopping ForegroundLocationService.")
-        val intent = Intent(this, ForegroundLocationService::class.java).apply {
-            action = ForegroundLocationService.ACTION_STOP_LOCATION_SERVICE
-        }
-        // It's good practice to use startForegroundService for consistency if the service could be in foreground
-        // or just startService if you are sure it only needs to process this command.
-        // For stopping, startService is generally fine.
-        startService(intent)
-    }
+    // Location service methods removed - location tracking is now handled by DiagnosticLocationService
+    // after diagnostic session creation in BluetoothViewModel
 
     // Example of when to stop the service, e.g., when the app is being destroyed,
     // or when a trip ends, or the user logs out.

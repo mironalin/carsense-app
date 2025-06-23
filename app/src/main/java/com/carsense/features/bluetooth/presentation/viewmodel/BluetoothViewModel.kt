@@ -10,6 +10,7 @@ import com.carsense.features.bluetooth.presentation.intent.BluetoothIntent
 import com.carsense.features.bluetooth.presentation.model.BluetoothState
 import com.carsense.features.diagnostics.data.DiagnosticSessionManager
 import com.carsense.features.diagnostics.domain.usecase.CreateDiagnosticAfterConnectionUseCase
+import com.carsense.features.location.domain.service.DiagnosticLocationService
 import com.carsense.features.obd2.domain.OBD2MessageMapper
 import com.carsense.features.vehicles.domain.repository.VehicleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -50,7 +51,8 @@ class BluetoothViewModel @Inject constructor(
     private val bluetoothController: BluetoothController,
     private val vehicleRepository: VehicleRepository,
     private val createDiagnosticAfterConnectionUseCase: CreateDiagnosticAfterConnectionUseCase,
-    private val diagnosticSessionManager: DiagnosticSessionManager
+    private val diagnosticSessionManager: DiagnosticSessionManager,
+    private val diagnosticLocationService: DiagnosticLocationService
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(BluetoothState())
@@ -263,6 +265,12 @@ class BluetoothViewModel @Inject constructor(
                                     "BluetoothViewModel",
                                     "Diagnostic created successfully with UUID: ${diagnostic.uuid}"
                                 )
+
+                                // Start location tracking for this diagnostic session
+                                startLocationTrackingForDiagnostic(
+                                    diagnostic.uuid,
+                                    diagnostic.vehicleUuid
+                                )
                             },
                             onFailure = { error ->
                                 // Update state with error and mark creation as failed
@@ -316,6 +324,45 @@ class BluetoothViewModel @Inject constructor(
     }
 
     /**
+     * Starts location tracking for a diagnostic session
+     */
+    private fun startLocationTrackingForDiagnostic(diagnosticUUID: String, vehicleUUID: String) {
+        try {
+            Log.d(
+                "BluetoothViewModel",
+                "Starting location tracking for diagnostic: $diagnosticUUID, vehicle: $vehicleUUID"
+            )
+            diagnosticLocationService.startLocationTrackingForDiagnostic(
+                diagnosticUUID,
+                vehicleUUID
+            )
+            Log.d("BluetoothViewModel", "Location tracking started successfully")
+        } catch (e: Exception) {
+            Log.e("BluetoothViewModel", "Error starting location tracking: ${e.message}", e)
+            // Don't fail the diagnostic creation if location tracking fails
+            _state.update { it.copy(errorMessage = "Warning: Location tracking could not be started: ${e.message}") }
+        }
+    }
+
+    /**
+     * Stops location tracking and uploads remaining locations
+     */
+    private suspend fun stopLocationTrackingAndUpload(): Boolean {
+        return try {
+            Log.d(
+                "BluetoothViewModel",
+                "Stopping location tracking and uploading remaining locations"
+            )
+            val success = diagnosticLocationService.stopLocationTrackingAndUpload()
+            Log.d("BluetoothViewModel", "Location tracking stopped, upload success: $success")
+            success
+        } catch (e: Exception) {
+            Log.e("BluetoothViewModel", "Error stopping location tracking: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
      * Disconnects from the currently connected device.
      *
      * This function performs two main actions:
@@ -335,13 +382,31 @@ class BluetoothViewModel @Inject constructor(
             "disconnectFromDevice called. CurrentVMState: (conn=${_state.value.isConnected}, connecting=${_state.value.isConnecting}, addr=${_state.value.connectedDeviceAddress})"
         )
 
-        // Clear diagnostic UUID from session manager when disconnecting
+        // Stop location tracking and upload remaining locations before clearing session
         viewModelScope.launch {
             try {
+                // Stop location tracking and upload remaining locations
+                val uploadSuccess = stopLocationTrackingAndUpload()
+                Log.d(
+                    "BluetoothViewModel",
+                    "Location upload completed with success: $uploadSuccess"
+                )
+
+                // Clear diagnostic UUID from session manager after location handling
                 diagnosticSessionManager.clearCurrentDiagnosticUUID()
                 Log.d("BluetoothViewModel", "Cleared diagnostic UUID from session manager")
             } catch (e: Exception) {
-                Log.e("BluetoothViewModel", "Error clearing diagnostic UUID: ${e.message}", e)
+                Log.e("BluetoothViewModel", "Error during disconnect cleanup: ${e.message}", e)
+                // Still try to clear the session even if location handling fails
+                try {
+                    diagnosticSessionManager.clearCurrentDiagnosticUUID()
+                } catch (sessionError: Exception) {
+                    Log.e(
+                        "BluetoothViewModel",
+                        "Error clearing diagnostic UUID: ${sessionError.message}",
+                        sessionError
+                    )
+                }
             }
         }
 

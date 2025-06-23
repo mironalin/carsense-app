@@ -1,6 +1,7 @@
 package com.carsense.features.location.di
 
 import android.content.Context
+import com.carsense.features.location.data.api.LocationApiService
 import com.carsense.features.location.data.repository.LocationRepositoryImpl
 import com.carsense.features.location.data.service.AndroidLocationService
 import com.carsense.features.location.data.service.LocationService
@@ -13,6 +14,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import retrofit2.Retrofit
 import javax.inject.Singleton
 
 /**
@@ -28,6 +30,12 @@ class LocationModule {
         @ApplicationContext context: Context
     ): FusedLocationProviderClient {
         return LocationServices.getFusedLocationProviderClient(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLocationApiService(retrofit: Retrofit): LocationApiService {
+        return retrofit.create(LocationApiService::class.java)
     }
 
     /**

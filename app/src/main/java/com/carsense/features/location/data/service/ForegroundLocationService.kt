@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import com.carsense.R
 import com.carsense.features.vehicles.data.db.VehicleDao
 import com.carsense.features.location.domain.model.LocationPoint
+import com.carsense.features.location.data.sync.LocationSyncManager
 import com.carsense.ui.MainActivity
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationAvailability
@@ -49,16 +50,22 @@ class ForegroundLocationService : Service() {
     @Inject
     lateinit var locationPointDao: LocationPointDao
 
+    @Inject
+    lateinit var locationSyncManager: LocationSyncManager
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private lateinit var locationCallback: LocationCallback
 
     private var currentVehicleUUID: String? = null // Changed from localId to UUID
+    private var currentDiagnosticUUID: String? = null // For diagnostic session tracking
+    private var locationUpdateCounter = 0 // Counter for triggering bulk upload checks
 
     companion object {
         const val ACTION_START_LOCATION_SERVICE = "ACTION_START_LOCATION_SERVICE"
         const val ACTION_STOP_LOCATION_SERVICE = "ACTION_STOP_LOCATION_SERVICE"
         const val EXTRA_VEHICLE_UUID = "EXTRA_VEHICLE_UUID" // Changed from local_id to UUID
+        const val EXTRA_DIAGNOSTIC_UUID = "EXTRA_DIAGNOSTIC_UUID" // For diagnostic session
 
         private const val TAG = "ForegroundLocationService"
         private const val NOTIFICATION_CHANNEL_ID = "LocationServiceChannel"
@@ -81,12 +88,17 @@ class ForegroundLocationService : Service() {
                 ACTION_START_LOCATION_SERVICE -> {
                     if (it.hasExtra(EXTRA_VEHICLE_UUID)) {
                         currentVehicleUUID = it.getStringExtra(EXTRA_VEHICLE_UUID)
+                        currentDiagnosticUUID =
+                            it.getStringExtra(EXTRA_DIAGNOSTIC_UUID) // Optional for backward compatibility
+                        locationUpdateCounter = 0 // Reset counter for new session
+
                         if (currentVehicleUUID.isNullOrEmpty()) {
                             Timber.e("Invalid vehicleUUID received. Stopping service.")
                             stopSelf()
                             return START_NOT_STICKY
                         }
-                        Timber.d("Starting location updates for vehicleUUID: $currentVehicleUUID")
+
+                        Timber.d("Starting location updates for vehicleUUID: $currentVehicleUUID, diagnosticUUID: $currentDiagnosticUUID")
                         startForegroundService()
                         startLocationUpdates()
                     } else {
@@ -128,6 +140,7 @@ class ForegroundLocationService : Service() {
                     val locationPoint = LocationPoint(
                         uuid = UUID.randomUUID().toString(),
                         vehicleUUID = vehicleUUID,
+                        diagnosticUUID = currentDiagnosticUUID, // Can be null for backward compatibility
                         latitude = location.latitude,
                         longitude = location.longitude,
                         altitude = if (location.hasAltitude()) location.altitude else null,
@@ -145,6 +158,13 @@ class ForegroundLocationService : Service() {
                         try {
                             val insertedId = locationPointDao.insert(locationEntity)
                             Timber.d("Saved location to database with ID: $insertedId")
+
+                            // Increment counter and check for bulk upload every 10 locations
+                            locationUpdateCounter++
+                            if (currentDiagnosticUUID != null && locationUpdateCounter % 10 == 0) {
+                                Timber.d("Triggering bulk upload check after $locationUpdateCounter location updates")
+                                locationSyncManager.triggerAsyncBulkUploadCheck()
+                            }
                         } catch (e: Exception) {
                             Timber.e(e, "Failed to save location to database")
                         }
