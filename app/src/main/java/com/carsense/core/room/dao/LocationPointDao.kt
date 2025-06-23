@@ -26,6 +26,12 @@ interface LocationPointDao {
     @Query("SELECT * FROM location_points WHERE is_synced = 0 ORDER BY timestamp ASC")
     fun getUnsyncedLocationPoints(): Flow<List<LocationPointEntity>>
 
+    @Query("SELECT * FROM location_points WHERE diagnostic_uuid = :diagnosticUUID ORDER BY timestamp ASC")
+    fun getLocationsByDiagnosticUuid(diagnosticUUID: String): Flow<List<LocationPointEntity>>
+
+    @Query("SELECT * FROM location_points WHERE diagnostic_uuid = :diagnosticUUID AND is_synced = 0 ORDER BY timestamp ASC")
+    suspend fun getUnsyncedLocationsByDiagnosticUuid(diagnosticUUID: String): List<LocationPointEntity>
+
     @Query("SELECT * FROM location_points WHERE local_id = :localId")
     suspend fun getLocationPointById(localId: Long): LocationPointEntity?
 
@@ -38,6 +44,9 @@ interface LocationPointDao {
 
     @Query("UPDATE location_points SET is_synced = 1 WHERE local_id IN (:localIds)")
     suspend fun markAsSynced(localIds: List<Long>): Int
+
+    @Query("UPDATE location_points SET is_synced = 1 WHERE uuid IN (:uuids)")
+    suspend fun markAsSyncedByUuid(uuids: List<String>): Int
 
     @Query("DELETE FROM location_points WHERE local_id = :localId")
     suspend fun deleteById(localId: Long): Int

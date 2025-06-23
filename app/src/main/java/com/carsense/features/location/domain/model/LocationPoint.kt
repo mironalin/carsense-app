@@ -7,6 +7,7 @@ package com.carsense.features.location.domain.model
 data class LocationPoint(
     val uuid: String,
     val vehicleUUID: String,
+    val diagnosticUUID: String?,
     val latitude: Double,
     val longitude: Double,
     val altitude: Double? = null,

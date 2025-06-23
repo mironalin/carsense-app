@@ -31,6 +31,9 @@ data class LocationPointEntity(
     @ColumnInfo(name = "vehicle_uuid")
     val vehicleUUID: String?,
 
+    @ColumnInfo(name = "diagnostic_uuid")
+    val diagnosticUUID: String?,
+
     @ColumnInfo(name = "latitude") val latitude: Double,
     @ColumnInfo(name = "longitude") val longitude: Double,
     @ColumnInfo(name = "altitude") val altitude: Double?,
