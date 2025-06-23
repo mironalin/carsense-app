@@ -13,7 +13,7 @@ import com.carsense.features.vehicles.data.db.VehicleEntity
 
 @Database(
     entities = [VehicleEntity::class, LocationPointEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false // Set to true if you want to export schema to a folder
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -129,6 +129,16 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Migration from version 2 to 3
+        // Changes:
+        // 1. Added diagnostic_uuid column to location_points table
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Add diagnostic_uuid column to location_points table
+                database.execSQL("ALTER TABLE location_points ADD COLUMN diagnostic_uuid TEXT")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE
                 ?: synchronized(this) {
@@ -138,7 +148,7 @@ abstract class AppDatabase : RoomDatabase() {
                             AppDatabase::class.java,
                             "carsense_database"
                         )
-                            .addMigrations(MIGRATION_1_2) // Add the migration
+                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3) // Add the migrations
                             .fallbackToDestructiveMigration(false) // If migrations are not
                             // provided, recreate the
                             // DB (not for production)
