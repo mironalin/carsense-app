@@ -14,7 +14,8 @@ data class CreateLocationRequest(
     val longitude: Double,
     val altitude: Double? = null,
     val speed: Double? = null,
-    val accuracy: Double? = null
+    val accuracy: Double? = null,
+    val timestamp: String? = null // ISO 8601 timestamp from client
 )
 
 /**

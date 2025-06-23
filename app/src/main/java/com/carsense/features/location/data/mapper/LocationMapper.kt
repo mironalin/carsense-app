@@ -70,7 +70,9 @@ object LocationMapper {
             longitude = domainModel.longitude,
             altitude = domainModel.altitude,
             speed = domainModel.speed?.toDouble(),
-            accuracy = domainModel.accuracy?.toDouble()
+            accuracy = domainModel.accuracy?.toDouble(),
+            timestamp = java.time.Instant.ofEpochMilli(domainModel.timestamp)
+                .toString() // Convert to ISO 8601 string
         )
     }
 
@@ -94,7 +96,11 @@ object LocationMapper {
             altitude = dto.altitude,
             speed = dto.speed?.toFloat(),
             accuracy = dto.accuracy?.toFloat(),
-            timestamp = System.currentTimeMillis(), // Convert from API timestamp if needed
+            timestamp = try {
+                java.time.Instant.parse(dto.timestamp).toEpochMilli()
+            } catch (e: Exception) {
+                System.currentTimeMillis() // Fallback to current time if parsing fails
+            },
             isSynced = true // Mark as synced since it comes from API
         )
     }
