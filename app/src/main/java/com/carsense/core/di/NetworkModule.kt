@@ -27,7 +27,7 @@ import javax.inject.Singleton
 object NetworkModule {
 
     private const val API_BASE_URL =
-        "https://api.carsense.workers.dev/api/" // Ensure trailing slash
+        "https://carsense.alinmiron.live/api/" // Ensure trailing slash
 
     @Provides
     @Singleton

@@ -31,7 +31,7 @@ class AuthManager @Inject constructor(
 ) {
 
     companion object {
-        private const val AUTH_BASE_URL = "https://api.carsense.workers.dev/api/android-auth"
+        private const val AUTH_BASE_URL = "https://carsense.alinmiron.live/api/android-auth"
 
         // API_BASE_URL is now configured in NetworkModule for Retrofit
         private const val REDIRECT_URI = "carsense://auth-callback"
