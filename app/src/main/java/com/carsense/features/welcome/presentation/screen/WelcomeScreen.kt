@@ -1,12 +1,14 @@
 package com.carsense.features.welcome.presentation.screen
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,7 +38,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -44,6 +49,8 @@ import com.carsense.features.welcome.presentation.components.ConnectionDetailsCa
 import com.carsense.features.welcome.presentation.components.DisconnectFooter
 import com.carsense.features.vehicles.presentation.components.SelectedVehicleCard
 import com.carsense.features.welcome.presentation.components.WelcomeTopBar
+import com.carsense.features.welcome.presentation.components.WelcomeBackgroundVisuals
+import com.carsense.features.welcome.presentation.components.WelcomeCenterIllustration
 import com.carsense.features.vehicles.presentation.viewmodel.VehicleSelectionEvent
 import com.carsense.features.vehicles.presentation.viewmodel.VehicleSelectionViewModel
 import com.carsense.features.welcome.presentation.viewmodel.WelcomeEvent
@@ -51,6 +58,7 @@ import com.carsense.features.welcome.presentation.viewmodel.WelcomeViewModel
 import com.carsense.ui.theme.CarSenseTheme
 import com.composables.icons.lucide.Car
 import com.composables.icons.lucide.LayoutDashboard
+import com.composables.icons.lucide.LogIn
 import com.composables.icons.lucide.Lucide
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -152,6 +160,13 @@ fun WelcomeScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
+                // Background visuals - always show for consistent visual experience
+                // This should be rendered first (behind everything)
+                WelcomeBackgroundVisuals(
+                    modifier = Modifier.fillMaxSize()
+                )
+                
+                // Content layer - this should be on top of background
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -265,30 +280,68 @@ fun WelcomeScreen(
                         }
                     }
 
-                    // 5. Not logged in message
+                    // 5. Not logged in message with enhanced visuals
                     if (!isLoggedIn) {
-                        Button(
-                            onClick = onLoginClick,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 56.dp)
-                        ) {
-                            Text(
-                                text = "Login to Continue",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                        }
-
-                        Text(
-                            text = "Login required to connect",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        // Add space at the top to center the content better
+                        Spacer(modifier = Modifier.weight(0.5f))
+                        
+                        // Central illustration for engaging welcome experience
+                        WelcomeCenterIllustration(
+                            modifier = Modifier.padding(vertical = 16.dp)
                         )
+                        
+                        // Enhanced button with visual candy
+                        Box(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            // Glowing background effect
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .background(
+                                        brush = Brush.horizontalGradient(
+                                            colors = listOf(
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                            )
+                                        ),
+                                        shape = RoundedCornerShape(14.dp)
+                                    )
+                            )
+                            
+                            Button(
+                                onClick = onLoginClick,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 56.dp),
+                                elevation = ButtonDefaults.buttonElevation(
+                                    defaultElevation = 6.dp,
+                                    pressedElevation = 12.dp
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Lucide.LogIn,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Get Started",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                        
+                        // Add space at the bottom to balance the layout
+                        Spacer(modifier = Modifier.weight(0.5f))
                     } else if (!isConnected && !vehicleState.isVehicleSelected) {
                         Text(
                             text = "Vehicle selection required to connect",
