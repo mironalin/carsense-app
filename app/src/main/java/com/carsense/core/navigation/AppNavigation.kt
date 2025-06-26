@@ -16,6 +16,7 @@ import com.carsense.features.dashboard.presentation.screen.DashboardScreen
 import com.carsense.features.diagnostics.presentation.screen.MileageInputScreen
 import com.carsense.features.dtc.presentation.screen.DTCScreen
 import com.carsense.features.location.presentation.screen.LocationScreen
+import com.carsense.features.sensors.presentation.screen.AnalogGaugesScreen
 import com.carsense.features.sensors.presentation.screen.SensorsScreen
 import com.carsense.features.vehicles.presentation.screen.AddVehicleScreen
 import com.carsense.features.welcome.presentation.screen.WelcomeScreen
@@ -140,6 +141,7 @@ fun AppNavigation(
                 },
                 navigateToDTC = { navController.navigate(NavRoutes.DTC) },
                 navigateToSensors = { navController.navigate(NavRoutes.SENSORS) },
+                navigateToAnalogGauges = { navController.navigate(NavRoutes.ANALOG_GAUGES) },
                 navigateToLocation = { navController.navigate(NavRoutes.LOCATION) })
         }
 
@@ -154,6 +156,11 @@ fun AppNavigation(
         // Sensors Screen
         animatedComposable(NavRoutes.SENSORS) {
             SensorsScreen(onBackPressed = { navController.navigateUp() })
+        }
+
+        // Analog Gauges Screen
+        animatedComposable(NavRoutes.ANALOG_GAUGES) {
+            AnalogGaugesScreen(onBackPressed = { navController.navigateUp() })
         }
 
         // Location Screen

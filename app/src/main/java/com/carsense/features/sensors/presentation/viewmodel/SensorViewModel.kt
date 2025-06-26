@@ -194,6 +194,9 @@ class SensorViewModel @Inject constructor(
     private val currentValues = mutableMapOf<String, Double>()
     private val targetValues = mutableMapOf<String, Double>()
 
+    // Track which sensors are currently being monitored
+    private var currentlySelectedSensors: Set<String>? = null
+
     // Removed complex animation-related fields that were causing issues
     // private val sensorVelocities = mutableMapOf<String, Double>()
     // private val lastActualReadings = mutableMapOf<String, Double>()
@@ -212,6 +215,25 @@ class SensorViewModel @Inject constructor(
         startPriorityMonitoring()
     }
 
+    /** Starts monitoring for only selected sensor data */
+    fun startSelectiveMonitoring(selectedSensorIds: Set<String>) {
+        android.util.Log.d("SensorViewModel", "startSelectiveMonitoring called with PIDs: $selectedSensorIds")
+        
+        if (state.value.isMonitoring) {
+            android.util.Log.d("SensorViewModel", "Already monitoring, stopping first...")
+            stopMonitoring()
+        }
+        
+        viewModelScope.launch {
+            try {
+                _state.update { it.copy(isLoading = true) }
+                startSelectivePriorityMonitoring(selectedSensorIds)
+            } catch (e: Exception) {
+                handleError("Failed to start selective monitoring: ${e.message}")
+            }
+        }
+    }
+
     /** Stops monitoring for sensor data */
     fun stopMonitoring() {
         if (!state.value.isMonitoring) {
@@ -220,6 +242,9 @@ class SensorViewModel @Inject constructor(
 
         monitoringRecoveryJob?.cancel()
         monitoringRecoveryJob = null
+
+        // Clear the selected sensors since we're stopping monitoring
+        currentlySelectedSensors = null
 
         viewModelScope.launch {
             try {
@@ -235,6 +260,9 @@ class SensorViewModel @Inject constructor(
     private fun startPriorityMonitoring() {
         viewModelScope.launch {
             try {
+                // Set to monitor all sensors
+                currentlySelectedSensors = null
+
                 // Group sensors by priority
                 val highPrioritySensors = listOf(PID_RPM, PID_SPEED, PID_THROTTLE_POSITION)
                 val mediumPrioritySensors =
@@ -281,10 +309,66 @@ class SensorViewModel @Inject constructor(
         }
     }
 
-    /** Set up flows for all sensors to collect readings and update UI state */
-    private fun setupSensorFlows() {
-        // Create a map of all sensor flows for cleaner organization
-        val sensorFlows =
+    /** Implements priority-based monitoring with error recovery for selected sensors only */
+    private fun startSelectivePriorityMonitoring(selectedSensorIds: Set<String>) {
+        android.util.Log.d("SensorViewModel", "startSelectivePriorityMonitoring called with: $selectedSensorIds")
+        
+        viewModelScope.launch {
+            try {
+                // Set the currently selected sensors
+                currentlySelectedSensors = selectedSensorIds
+
+                // Group selected sensors by priority
+                val allHighPrioritySensors = listOf(PID_RPM, PID_SPEED, PID_THROTTLE_POSITION)
+                val allMediumPrioritySensors =
+                    listOf(PID_COOLANT_TEMP, PID_ENGINE_LOAD, PID_INTAKE_MANIFOLD_PRESSURE)
+                val allLowPrioritySensors =
+                    listOf(
+                        PID_INTAKE_AIR_TEMP,
+                        PID_FUEL_LEVEL,
+                        PID_TIMING_ADVANCE,
+                        PID_MAF_RATE
+                    )
+
+                // Filter by selected sensors
+                val highPrioritySensors = allHighPrioritySensors.filter { selectedSensorIds.contains(it) }
+                val mediumPrioritySensors = allMediumPrioritySensors.filter { selectedSensorIds.contains(it) }
+                val lowPrioritySensors = allLowPrioritySensors.filter { selectedSensorIds.contains(it) }
+
+                android.util.Log.d("SensorViewModel", "Filtered high priority: $highPrioritySensors")
+                android.util.Log.d("SensorViewModel", "Filtered medium priority: $mediumPrioritySensors")
+                android.util.Log.d("SensorViewModel", "Filtered low priority: $lowPrioritySensors")
+
+                // Set up flows for only the selected sensors
+                setupSensorFlows(selectedSensorIds)
+
+                // Start the interpolation job for smoother UI updates
+                startInterpolationJob()
+
+                // Start repository monitoring with filtered sensor lists
+                sensorRepository.startPrioritizedMonitoring(
+                    highPrioritySensors = highPrioritySensors,
+                    mediumPrioritySensors = mediumPrioritySensors,
+                    lowPrioritySensors = lowPrioritySensors
+                )
+
+                _state.update { it.copy(isMonitoring = true, isLoading = false, error = null) }
+            } catch (e: CancellationException) {
+                // Normal during shutdown
+                _state.update { it.copy(isLoading = false, isMonitoring = false) }
+            } catch (e: Exception) {
+                // Log but don't crash
+                println("Error in selective recovery monitoring: ${e.message}")
+                // Try to restart monitoring after delay - this helps with transient errors
+                setupSelectiveRecoveryMonitoring(selectedSensorIds)
+            }
+        }
+    }
+
+    /** Set up flows for sensors to collect readings and update UI state */
+    private fun setupSensorFlows(selectedSensorIds: Set<String>? = null) {
+        // Create a map of all available sensor flows
+        val allSensorFlows =
             mapOf(
                 PID_RPM to sensorRepository.getSensorReadings(PID_RPM),
                 PID_SPEED to sensorRepository.getSensorReadings(PID_SPEED),
@@ -301,6 +385,15 @@ class SensorViewModel @Inject constructor(
                         sensorRepository.getSensorReadings(PID_TIMING_ADVANCE),
                 PID_MAF_RATE to sensorRepository.getSensorReadings(PID_MAF_RATE)
             )
+
+        // Filter flows based on selected sensors (if provided)
+        val sensorFlows = if (selectedSensorIds != null) {
+            allSensorFlows.filterKeys { selectedSensorIds.contains(it) }
+        } else {
+            allSensorFlows
+        }
+
+        Log.d("SensorViewModel", "Setting up flows for sensors: ${sensorFlows.keys}")
 
         // Collect from each flow and update state
         sensorFlows.forEach { (pid, flow) ->
@@ -493,17 +586,28 @@ class SensorViewModel @Inject constructor(
                         // Keep track of which sensors need updates
                         val updates = mutableMapOf<String, SensorReading>()
 
-                        // Process all sensors in priority order
-                        processRpmAnimation(updates)
-                        processSpeedAnimation(updates)
-                        processGenericSensorAnimation(PID_THROTTLE_POSITION, updates)
-                        processGenericSensorAnimation(PID_COOLANT_TEMP, updates)
-                        processGenericSensorAnimation(PID_ENGINE_LOAD, updates)
-                        processGenericSensorAnimation(PID_INTAKE_MANIFOLD_PRESSURE, updates)
-                        processGenericSensorAnimation(PID_FUEL_LEVEL, updates)
-                        processGenericSensorAnimation(PID_TIMING_ADVANCE, updates)
-                        processGenericSensorAnimation(PID_MAF_RATE, updates)
-                        processGenericSensorAnimation(PID_INTAKE_AIR_TEMP, updates)
+                        // Get the list of sensors to process
+                        val sensorsToProcess = currentlySelectedSensors ?: setOf(
+                            PID_RPM, PID_SPEED, PID_THROTTLE_POSITION, PID_COOLANT_TEMP, 
+                            PID_ENGINE_LOAD, PID_INTAKE_MANIFOLD_PRESSURE, PID_FUEL_LEVEL, 
+                            PID_TIMING_ADVANCE, PID_MAF_RATE, PID_INTAKE_AIR_TEMP
+                        )
+
+                        // Process only selected sensors
+                        sensorsToProcess.forEach { sensorId ->
+                            when (sensorId) {
+                                PID_RPM -> processRpmAnimation(updates)
+                                PID_SPEED -> processSpeedAnimation(updates)
+                                PID_THROTTLE_POSITION -> processGenericSensorAnimation(PID_THROTTLE_POSITION, updates)
+                                PID_COOLANT_TEMP -> processGenericSensorAnimation(PID_COOLANT_TEMP, updates)
+                                PID_ENGINE_LOAD -> processGenericSensorAnimation(PID_ENGINE_LOAD, updates)
+                                PID_INTAKE_MANIFOLD_PRESSURE -> processGenericSensorAnimation(PID_INTAKE_MANIFOLD_PRESSURE, updates)
+                                PID_FUEL_LEVEL -> processGenericSensorAnimation(PID_FUEL_LEVEL, updates)
+                                PID_TIMING_ADVANCE -> processGenericSensorAnimation(PID_TIMING_ADVANCE, updates)
+                                PID_MAF_RATE -> processGenericSensorAnimation(PID_MAF_RATE, updates)
+                                PID_INTAKE_AIR_TEMP -> processGenericSensorAnimation(PID_INTAKE_AIR_TEMP, updates)
+                            }
+                        }
 
                         // Apply all updates in a single state update
                         if (updates.isNotEmpty()) {
@@ -871,6 +975,41 @@ class SensorViewModel @Inject constructor(
             }
     }
 
+    /** Sets up error recovery monitoring for selective sensor monitoring */
+    private fun setupSelectiveRecoveryMonitoring(selectedSensorIds: Set<String>) {
+        monitoringRecoveryJob?.cancel()
+
+        monitoringRecoveryJob =
+            viewModelScope.launch {
+                try {
+                    var lastReadingTime = System.currentTimeMillis()
+
+                    while (state.value.isMonitoring) {
+                        delay(5000) // Check every 5 seconds
+
+                        val currentTime = System.currentTimeMillis()
+                        val timeSinceLastReading = currentTime - lastReadingTime
+
+                        // Check for fresh readings from selected sensors only
+                        val freshReadings = hasFreshReadingsFromSelected(selectedSensorIds)
+
+                        if (freshReadings) {
+                            lastReadingTime = currentTime
+                        } else if (timeSinceLastReading > 10000) {
+                            // More than 10 seconds without readings - restart monitoring
+                            restartSelectiveMonitoring(selectedSensorIds)
+                            lastReadingTime = currentTime
+                        }
+                    }
+                } catch (e: CancellationException) {
+                    // Normal during shutdown
+                } catch (e: Exception) {
+                    // Log but don't crash
+                    println("Error in selective recovery monitoring: ${e.message}")
+                }
+            }
+    }
+
     /** Check if we have any fresh readings from the critical sensors */
     private fun hasFreshReadings(): Boolean {
         val currentTime = System.currentTimeMillis()
@@ -895,6 +1034,35 @@ class SensorViewModel @Inject constructor(
         }
 
         return hasFresh
+    }
+
+    /** Check if we have any fresh readings from the selected sensors */
+    private fun hasFreshReadingsFromSelected(selectedSensorIds: Set<String>): Boolean {
+        val currentTime = System.currentTimeMillis()
+
+        for (sensorId in selectedSensorIds) {
+            val reading = when (sensorId) {
+                PID_RPM -> state.value.rpmReading
+                PID_SPEED -> state.value.speedReading
+                PID_COOLANT_TEMP -> state.value.coolantTempReading
+                PID_INTAKE_AIR_TEMP -> state.value.intakeAirTempReading
+                PID_THROTTLE_POSITION -> state.value.throttlePositionReading
+                PID_FUEL_LEVEL -> state.value.fuelLevelReading
+                PID_ENGINE_LOAD -> state.value.engineLoadReading
+                PID_INTAKE_MANIFOLD_PRESSURE -> state.value.intakeManifoldPressureReading
+                PID_TIMING_ADVANCE -> state.value.timingAdvanceReading
+                PID_MAF_RATE -> state.value.massAirFlowReading
+                else -> null
+            }
+
+            reading?.let {
+                if (currentTime - it.timestamp < 5000) {
+                    return true
+                }
+            }
+        }
+
+        return false
     }
 
     /** Restart monitoring if it stops responding */
@@ -935,14 +1103,58 @@ class SensorViewModel @Inject constructor(
         }
     }
 
+    /** Restart selective monitoring if it stops responding */
+    private suspend fun restartSelectiveMonitoring(selectedSensorIds: Set<String>) {
+        try {
+            // First stop any existing monitoring
+            sensorRepository.stopMonitoring()
+            delay(500) // Give it time to clean up
+
+            // If we're still supposed to be monitoring, restart it
+            if (state.value.isMonitoring) {
+                // Group selected sensors by priority
+                val allHighPrioritySensors = listOf(PID_RPM, PID_SPEED, PID_THROTTLE_POSITION)
+                val allMediumPrioritySensors =
+                    listOf(PID_COOLANT_TEMP, PID_ENGINE_LOAD, PID_INTAKE_MANIFOLD_PRESSURE)
+                val allLowPrioritySensors =
+                    listOf(
+                        PID_INTAKE_AIR_TEMP,
+                        PID_FUEL_LEVEL,
+                        PID_TIMING_ADVANCE,
+                        PID_MAF_RATE
+                    )
+
+                // Filter by selected sensors only
+                val highPrioritySensors = allHighPrioritySensors.filter { selectedSensorIds.contains(it) }
+                val mediumPrioritySensors = allMediumPrioritySensors.filter { selectedSensorIds.contains(it) }
+                val lowPrioritySensors = allLowPrioritySensors.filter { selectedSensorIds.contains(it) }
+
+                // Use a fixed refresh rate of 200ms
+                val baseRefreshRate = 200L
+
+                // Restart monitoring with the selected sensors
+                sensorRepository.startPrioritizedMonitoring(
+                    highPrioritySensors,
+                    mediumPrioritySensors,
+                    lowPrioritySensors,
+                    baseRefreshRate
+                )
+            }
+        } catch (e: Exception) {
+            println("Error restarting selective monitoring: ${e.message}")
+            // Don't update the state here - we'll try again later
+        }
+    }
+
     /** Handle errors and update state */
     private fun handleError(errorMessage: String) {
         _state.update { it.copy(isLoading = false, error = errorMessage) }
     }
 
-    /** Initial load of sensor readings */
+    /** Initial setup - removed automatic monitoring start */
     init {
-        startMonitoring()
+        // Remove automatic monitoring start - let screens control when to start monitoring
+        // startMonitoring()
 
         // Observe snapshot collector state
         viewModelScope.launch {

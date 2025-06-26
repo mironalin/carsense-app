@@ -44,6 +44,7 @@ fun DashboardScreen(
     onSendCommand: (String) -> Unit,
     navigateToDTC: () -> Unit = {},
     navigateToSensors: () -> Unit = {},
+    navigateToAnalogGauges: () -> Unit = {},
     navigateToLocation: () -> Unit = {}
 ) {
     Scaffold(
@@ -123,7 +124,7 @@ fun DashboardScreen(
                 subtitle = "Real-time dashboard",
                 description = "View RPM, speed, and engine data",
                 icon = Icons.Default.Speed,
-                onClick = { onSendCommand("010C") },
+                onClick = navigateToAnalogGauges,
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.weight(0.4f)
