@@ -58,11 +58,11 @@ fun MileageInputScreen(
     LaunchedEffect(state.diagnosticUuid, state.diagnosticCreationInProgress) {
         if (state.diagnosticUuid != null && !state.diagnosticCreationInProgress) {
             // Show success toast
-            Toast.makeText(
-                context,
-                "Diagnostic record created successfully",
-                Toast.LENGTH_SHORT
-            ).show()
+//            Toast.makeText(
+//                context,
+//                "Diagnostic record created successfully",
+//                Toast.LENGTH_SHORT
+//            ).show()
 
             // Navigate back to welcome screen
             navController.navigateSingleTop(NavRoutes.WELCOME)

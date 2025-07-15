@@ -528,17 +528,17 @@ fun ConnectionStateOverlay(viewModel: BluetoothViewModel) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
 
-    // Show success toast when diagnostic is created
-    LaunchedEffect(state.diagnosticUuid, state.diagnosticCreationInProgress) {
-        if (state.diagnosticUuid != null && !state.diagnosticCreationInProgress) {
-            // Show success toast
-            Toast.makeText(
-                context,
-                "Diagnostic record created successfully",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
+//    // Show success toast when diagnostic is created
+//    LaunchedEffect(state.diagnosticUuid, state.diagnosticCreationInProgress) {
+//        if (state.diagnosticUuid != null && !state.diagnosticCreationInProgress) {
+//            // Show success toast
+//            Toast.makeText(
+//                context,
+//                "Diagnostic record created successfully",
+//                Toast.LENGTH_SHORT
+//            ).show()
+//        }
+//    }
 
     // Show diagnostic creation progress
     if (state.diagnosticCreationInProgress) {

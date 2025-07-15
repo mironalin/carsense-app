@@ -1,15 +1,19 @@
 package com.carsense.core.network
 
 import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
 
 /**
  * Response model for the get-session endpoint.
  */
+
+@JsonClass(generateAdapter = true)
 data class SessionResponse(
     val session: Session,
     val user: User
 )
 
+@JsonClass(generateAdapter = true)
 data class Session(
     val id: String,
     @Json(name = "expiresAt") val expiresAt: String,
@@ -21,6 +25,7 @@ data class Session(
     @Json(name = "userId") val userId: String
 )
 
+@JsonClass(generateAdapter = true)
 data class User(
     val id: String,
     val name: String?,
