@@ -56,6 +56,7 @@ import com.carsense.features.vehicles.presentation.viewmodel.VehicleSelectionVie
 import com.carsense.features.welcome.presentation.viewmodel.WelcomeEvent
 import com.carsense.features.welcome.presentation.viewmodel.WelcomeViewModel
 import com.carsense.ui.theme.CarSenseTheme
+import com.carsense.core.theme.ThemeMode
 import com.composables.icons.lucide.Car
 import com.composables.icons.lucide.LayoutDashboard
 import com.composables.icons.lucide.LogIn
@@ -358,7 +359,7 @@ fun WelcomeScreen(
 @Preview(showBackground = true, name = "Welcome Screen Light - Logged Out")
 @Composable
 fun WelcomeScreenPreviewLightLoggedOut() {
-    CarSenseTheme(darkTheme = false) {
+    CarSenseTheme(themeMode = ThemeMode.LIGHT) {
         WelcomeScreen(
             onConnectClick = {},
             onSettingsClick = {},
@@ -375,7 +376,7 @@ fun WelcomeScreenPreviewLightLoggedOut() {
 @Preview(showBackground = true, name = "Welcome Screen Dark - Logged Out")
 @Composable
 fun WelcomeScreenPreviewDarkLoggedOut() {
-    CarSenseTheme(darkTheme = true) {
+    CarSenseTheme(themeMode = ThemeMode.DARK) {
         WelcomeScreen(
             onConnectClick = {},
             onSettingsClick = {},
@@ -392,7 +393,7 @@ fun WelcomeScreenPreviewDarkLoggedOut() {
 @Preview(showBackground = true, name = "Welcome Screen Light - Logged In")
 @Composable
 fun WelcomeScreenPreviewLightLoggedIn() {
-    CarSenseTheme(darkTheme = false) {
+    CarSenseTheme(themeMode = ThemeMode.LIGHT) {
         WelcomeScreen(
             onConnectClick = {},
             onSettingsClick = {},
@@ -409,7 +410,7 @@ fun WelcomeScreenPreviewLightLoggedIn() {
 @Preview(showBackground = true, name = "Welcome Screen Dark - Logged In, Connected")
 @Composable
 fun WelcomeScreenPreviewDarkLoggedInConnected() {
-    CarSenseTheme(darkTheme = true) {
+    CarSenseTheme(themeMode = ThemeMode.DARK) {
         WelcomeScreen(
             onConnectClick = {},
             onSettingsClick = {},

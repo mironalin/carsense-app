@@ -31,9 +31,29 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MapPin
 import com.composables.icons.lucide.Moon
 import com.composables.icons.lucide.Settings
+import com.composables.icons.lucide.Sun
+import com.composables.icons.lucide.Monitor
 import com.composables.icons.lucide.TriangleAlert
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import com.carsense.core.theme.ThemeManager
+import com.carsense.core.theme.ThemeMode
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.launch
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface ThemeManagerEntryPoint {
+    fun themeManager(): ThemeManager
+}
 
 /** Dashboard screen displaying vehicle diagnostic features with modern Material 3 design */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,6 +67,17 @@ fun DashboardScreen(
     navigateToAnalogGauges: () -> Unit = {},
     navigateToLocation: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val themeManager = remember {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            ThemeManagerEntryPoint::class.java
+        ).themeManager()
+    }
+    
+    val coroutineScope = rememberCoroutineScope()
+    val currentThemeMode by themeManager.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+    
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -64,16 +95,33 @@ fun DashboardScreen(
         },
         bottomBar = {
             NavigationBar {
-                // Dark mode toggle
+                // Theme toggle button
                 NavigationBarItem(
                     icon = {
                         Icon(
-                            imageVector = Lucide.Moon,
-                            contentDescription = "Dark Mode"
+                            imageVector = when (currentThemeMode) {
+                                ThemeMode.SYSTEM -> Lucide.Monitor
+                                ThemeMode.LIGHT -> Lucide.Sun
+                                ThemeMode.DARK -> Lucide.Moon
+                            },
+                            contentDescription = when (currentThemeMode) {
+                                ThemeMode.SYSTEM -> "System Theme (tap to switch to Light)"
+                                ThemeMode.LIGHT -> "Light Theme (tap to switch to Dark)"
+                                ThemeMode.DARK -> "Dark Theme (tap to switch to System)"
+                            }
                         )
                     },
-                    selected = false,
-                    onClick = { /* Toggle dark mode */ }
+                    selected = currentThemeMode != ThemeMode.SYSTEM,
+                    onClick = {
+                        coroutineScope.launch {
+                            val newTheme = when (currentThemeMode) {
+                                ThemeMode.SYSTEM -> ThemeMode.LIGHT
+                                ThemeMode.LIGHT -> ThemeMode.DARK
+                                ThemeMode.DARK -> ThemeMode.SYSTEM
+                            }
+                            themeManager.setThemeMode(newTheme)
+                        }
+                    }
                 )
 
                 // Disconnect button

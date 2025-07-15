@@ -3,6 +3,7 @@ package com.carsense.ui
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -11,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.browser.customtabs.CustomTabsClient
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Arrangement
@@ -55,6 +57,8 @@ import com.carsense.core.navigation.AppNavigation
 import com.carsense.core.permissions.LocationPermissionHelper
 import com.carsense.core.navigation.LocalNavController
 import com.carsense.ui.theme.CarSenseTheme
+import com.carsense.core.theme.ThemeManager
+import com.carsense.core.theme.ThemeMode
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -71,6 +75,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var tokenStorageService: TokenStorageService
+
+    @Inject
+    lateinit var themeManager: ThemeManager
 
     // Use lateinit var instead of lazy with hiltViewModel()
     private lateinit var authViewModel: AuthViewModel
@@ -94,7 +101,14 @@ class MainActivity : ComponentActivity() {
     // State for managing dialog visibility
     private var showBackgroundRationaleDialogState by mutableStateOf(false)
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Apply theme before calling super.onCreate() to ensure it affects the activity creation
+        applyThemeFromPreferences()
+        
         super.onCreate(savedInstanceState)
 
         // Initialize the AuthViewModel using ViewModelProvider
@@ -123,7 +137,9 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            CarSenseTheme {
+            val themeMode by themeManager.themeMode.collectAsState(initial = com.carsense.core.theme.ThemeMode.SYSTEM)
+            
+            CarSenseTheme(themeMode = themeMode) {
                 val viewModel = hiltViewModel<BluetoothViewModel>()
                 val navController = rememberNavController()
                 val bluetoothState by viewModel.state.collectAsState()
@@ -290,6 +306,32 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(
                 this, "Login failed: ${e.message ?: "Unknown error"}", Toast.LENGTH_LONG
             ).show()
+        }
+    }
+
+    private fun applyThemeFromPreferences() {
+        try {
+            val sharedPrefs = getSharedPreferences("theme_prefs", Context.MODE_PRIVATE)
+            val themeString = sharedPrefs.getString("theme_mode", ThemeMode.SYSTEM.name) ?: ThemeMode.SYSTEM.name
+
+            val themeMode = try {
+                ThemeMode.valueOf(themeString)
+            } catch (e: IllegalArgumentException) {
+                Timber.w("Invalid theme mode in preferences: $themeString, falling back to SYSTEM")
+                ThemeMode.SYSTEM
+            }
+
+            val nightMode = when (themeMode) {
+                ThemeMode.SYSTEM -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                ThemeMode.LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
+                ThemeMode.DARK -> AppCompatDelegate.MODE_NIGHT_YES
+            }
+
+            AppCompatDelegate.setDefaultNightMode(nightMode)
+            Timber.d("Applied theme mode in MainActivity: $themeMode")
+        } catch (e: Exception) {
+            Timber.e(e, "Error applying theme preference in MainActivity")
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         }
     }
 
@@ -549,4 +591,8 @@ fun ConnectionStateOverlay(viewModel: BluetoothViewModel) {
                     }) { Text("OK") }
             })
     }
+
 }
+
+
+
